@@ -8,7 +8,7 @@
 import SwiftUI
 
 @main
-struct RadarTaniMobileApp: App {
+struct RadarTaniApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
