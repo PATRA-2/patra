@@ -22,11 +22,11 @@ actor ImageSelectionService {
     }
 
     func openSettings() {
-        guard let settingsURL = URL(string: UIApplication.openSettingsURLString),
-              UIApplication.shared.canOpenURL(settingsURL) else {
+        guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else {
             return
         }
         Task { @MainActor in
+            guard UIApplication.shared.canOpenURL(settingsURL) else { return }
             UIApplication.shared.open(settingsURL)
         }
     }
