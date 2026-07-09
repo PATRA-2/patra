@@ -2,6 +2,7 @@ import SwiftUI
 
 enum MainTab: Hashable {
     case home
+    case farms
     case plantScan
     case radarFeed
     case map
@@ -11,7 +12,6 @@ typealias HomeTab = MainTab
 
 extension MainTab {
     static let report: MainTab = .plantScan
-    static let farms: MainTab = .map
 }
 
 struct MainTabView: View {
@@ -43,6 +43,14 @@ struct MainTabView: View {
                 Label("Beranda", systemImage: "house.fill")
             }
             .tag(MainTab.home)
+
+            NavigationStack {
+                FarmListView()
+            }
+            .tabItem {
+                Label("Lahan", systemImage: "leaf.fill")
+            }
+            .tag(MainTab.farms)
 
             NavigationStack {
                 PlantScanView()

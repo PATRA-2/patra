@@ -5,86 +5,174 @@ struct RadarFeedView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
-                RadarFeedSegmentedControl()
-                RadiusInfoBanner()
+            VStack(alignment: .leading, spacing: 18) {
+                RadarFeedSummaryCard(
+                    farmName: viewModel.activeFarmName,
+                    radius: viewModel.feedRadius,
+                    totalReports: viewModel.reports.count
+                )
+
+                RadiusInfoBanner(radius: viewModel.feedRadius, farmName: viewModel.activeFarmName)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    SectionHeader(
+                        title: "Laporan Sekitar",
+                        subtitle: "Kategori sesuai PRD: hama, bibit, dan kerja tani"
+                    )
+
+                    ReportCategoryFilter(selectedCategory: selectedCategoryBinding, reports: viewModel.reports)
+                }
 
                 LazyVStack(spacing: 10) {
-                    ForEach(viewModel.reports) { report in
+                    ForEach(viewModel.filteredReports) { report in
                         RadarReportCard(report: report)
                     }
                 }
+
+                if viewModel.filteredReports.isEmpty {
+                    EmptyRadarFeedState(categoryTitle: viewModel.selectedCategoryTitle)
+                }
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 20)
         }
-        .background(RTDColor.background)
+        .refreshable {
+            await viewModel.refresh()
+        }
+        .background(RTDColor.background.ignoresSafeArea())
         .navigationTitle("Radar Feed")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {} label: {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.headline)
+                Menu {
+                    Button("Semua Laporan") {
+                        viewModel.selectedCategory = nil
+                    }
+
+                    ForEach(RadarReport.Category.allCases, id: \.self) { category in
+                        Button(category.rawValue) {
+                            viewModel.selectedCategory = category
+                        }
+                    }
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                        .font(.title3)
                 }
-                .buttonStyle(.plain)
                 .foregroundStyle(RTDColor.textPrimary)
-                .accessibilityLabel("Filter radar feed")
+                .accessibilityLabel("Pilih kategori Radar Feed")
             }
         }
     }
+
+    private var selectedCategoryBinding: Binding<RadarReport.Category?> {
+        Binding(
+            get: { viewModel.selectedCategory },
+            set: { viewModel.selectedCategory = $0 }
+        )
+    }
 }
 
-private struct RadarFeedSegmentedControl: View {
-    var body: some View {
-        HStack(spacing: 0) {
-            Text("Peta")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(RTDColor.textSecondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
+private struct RadarFeedSummaryCard: View {
+    let farmName: String
+    let radius: String
+    let totalReports: Int
 
-            Text("Daftar")
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(RTDColor.textPrimary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(RTDColor.primaryGreen, in: Capsule())
-                .overlay {
-                    Capsule()
-                        .stroke(RTDColor.deepGreen.opacity(0.18), lineWidth: 1)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "dot.radiowaves.left.and.right")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(RTDColor.primaryGreen)
+                    .frame(width: 46, height: 46)
+                    .background(.white.opacity(0.16), in: Circle())
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Radar Feed")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+
+                    Text("Pantau laporan hama, kebutuhan bibit, dan kerja tani yang relevan dengan lahan Anda.")
+                        .font(.callout)
+                        .foregroundStyle(.white.opacity(0.86))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .accessibilityAddTraits(.isSelected)
+            }
+
+            HStack(spacing: 12) {
+                FeedMetricPill(title: "Lahan aktif", value: farmName, systemImage: "leaf.fill")
+                FeedMetricPill(title: "Radius", value: radius, systemImage: "location.fill")
+                FeedMetricPill(title: "Laporan", value: "\(totalReports)", systemImage: "doc.text.fill")
+            }
+            .padding(12)
+            .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
-        .padding(2)
-        .background(RTDColor.cardBackground, in: Capsule())
-        .overlay {
-            Capsule()
-                .stroke(RTDColor.borderSoft, lineWidth: 1)
+        .padding(22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            ZStack(alignment: .bottomTrailing) {
+                LinearGradient(colors: [RTDColor.deepGreen, Color(hex: "#315D34")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                Image(systemName: "map.circle.fill")
+                    .font(.system(size: 150))
+                    .foregroundStyle(.white.opacity(0.1))
+                    .offset(x: 24, y: 34)
+            }
         }
-        .accessibilityElement(children: .contain)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .shadow(color: RTDColor.deepGreen.opacity(0.16), radius: 22, x: 0, y: 14)
+    }
+}
+
+private struct FeedMetricPill: View {
+    let title: String
+    let value: String
+    let systemImage: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Label(title, systemImage: systemImage)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.72))
+                .lineLimit(1)
+
+            Text(value)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 private struct RadiusInfoBanner: View {
+    let radius: String
+    let farmName: String
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "info.circle")
+            Image(systemName: "scope")
                 .font(.title3)
                 .foregroundStyle(RTDColor.deepGreen)
                 .padding(.top, 1)
 
-            Text("Laporan di sekitar Anda berdasarkan radius 5 km dari lokasi lahan Anda.")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(RTDColor.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Jarak dihitung dari \(farmName)")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(RTDColor.textPrimary)
+
+                Text("Feed menampilkan laporan dalam radius \(radius). Backend nantinya menghitung radius dengan lokasi lahan dan PostGIS.")
+                    .font(.caption)
+                    .foregroundStyle(RTDColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(RTDColor.softGreen.opacity(0.65), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(RTDColor.softGreen.opacity(0.72), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(RTDColor.borderSoft, lineWidth: 1)
         }
     }
@@ -94,92 +182,110 @@ private struct RadarReportCard: View {
     let report: RadarReport
 
     var body: some View {
-        HStack(spacing: 12) {
-            ReportThumbnail(distance: report.distance)
-                .frame(width: 112, height: 94)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+//                CategoryIcon(category: report.category)
 
-            VStack(alignment: .leading, spacing: 7) {
-                Text(report.title)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(RTDColor.textPrimary)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 5) {
+                    CategoryChip(title: report.category.rawValue, systemImage: report.category.icon, color: report.category.color, isSelected: false)
 
-                Text(report.summary)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(RTDColor.textPrimary)
-                    .lineLimit(2)
-
-                Spacer(minLength: 4)
-
-                HStack(alignment: .bottom, spacing: 8) {
-                    Text(report.timeAgo)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(RTDColor.textSecondary)
-                        .lineLimit(1)
-
-                    Spacer(minLength: 8)
-
-                    Image(systemName: "mappin.and.ellipse")
-                        .font(.title3)
-                        .foregroundStyle(RTDColor.textSecondary)
-                        .accessibilityHidden(true)
+                    Text(report.title)
+                        .font(.headline)
+                        .foregroundStyle(RTDColor.textPrimary)
+//                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
+
+                Spacer(minLength: 8)
+
+                RTDBadge(title: report.status, color: statusColor)
             }
-            .padding(.vertical, 12)
-            .padding(.trailing, 12)
+
+            Text(report.summary)
+                .font(.callout)
+                .foregroundStyle(RTDColor.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+                .overlay(RTDColor.borderSoft)
+
+            HStack(spacing: 10) {
+                Label(report.distance, systemImage: "mappin.and.ellipse")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(RTDColor.textPrimary)
+
+                Text("dari lahan Anda")
+                    .font(.caption)
+                    .foregroundStyle(RTDColor.textSecondary)
+
+                Spacer(minLength: 8)
+
+                Text(report.timeAgo)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(RTDColor.textSecondary)
+                    .lineLimit(1)
+            }
         }
-        .frame(minHeight: 94)
+        .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RTDColor.cardBackground, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(RTDColor.cardBackground, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
                 .stroke(RTDColor.borderSoft, lineWidth: 1)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .accessibilityElement(children: .combine)
     }
-}
 
-private struct ReportThumbnail: View {
-    let distance: String
-
-    var body: some View {
-        ZStack(alignment: .topTrailing) {
-            RTDColor.mutedBackground
-
-            PlaceholderCross()
-                .padding(8)
-
-            Text(distance)
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(RTDColor.textPrimary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(RTDColor.cardBackground, in: Capsule())
-                .overlay {
-                    Capsule()
-                        .stroke(RTDColor.borderSoft, lineWidth: 1)
-                }
-                .padding(6)
-        }
-        .overlay(alignment: .trailing) {
-            Rectangle()
-                .fill(RTDColor.borderSoft)
-                .frame(width: 1)
+    private var statusColor: Color {
+        switch report.status {
+        case "Terverifikasi":
+            RTDColor.safeGreen
+        case "Aktif":
+            RTDColor.infoBlue
+        default:
+            RTDColor.warningOrange
         }
     }
 }
 
-private struct PlaceholderCross: View {
+private struct CategoryIcon: View {
+    let category: RadarReport.Category
+
     var body: some View {
-        GeometryReader { proxy in
-            Path { path in
-                path.move(to: .zero)
-                path.addLine(to: CGPoint(x: proxy.size.width, y: proxy.size.height))
-                path.move(to: CGPoint(x: proxy.size.width, y: 0))
-                path.addLine(to: CGPoint(x: 0, y: proxy.size.height))
-            }
-            .stroke(RTDColor.textSecondary.opacity(0.35), lineWidth: 1.2)
+        Image(systemName: category.icon)
+            .font(.headline.weight(.bold))
+            .foregroundStyle(category.color)
+            .frame(width: 42, height: 42)
+            .background(category.color.opacity(0.12), in: Circle())
+    }
+}
+
+private struct EmptyRadarFeedState: View {
+    let categoryTitle: String
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "tray")
+                .font(.title2)
+                .foregroundStyle(RTDColor.textSecondary)
+
+            Text("Belum ada \(categoryTitle.lowercased())")
+                .font(.headline)
+                .foregroundStyle(RTDColor.textPrimary)
+
+            Text("Laporan baru akan muncul setelah backend menerima data dari petani atau koperasi.")
+                .font(.callout)
+                .foregroundStyle(RTDColor.textSecondary)
+                .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity)
+        .padding(24)
+        .rtdCard(radius: 18)
+    }
+}
+
+#Preview {
+    NavigationStack {
+        RadarFeedView()
     }
 }

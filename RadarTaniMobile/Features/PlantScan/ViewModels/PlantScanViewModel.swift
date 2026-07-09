@@ -26,6 +26,13 @@ final class PlantScanViewModel {
     }
 
     func selectSource(_ source: UIImagePickerController.SourceType) {
+        guard UIImagePickerController.isSourceTypeAvailable(source) else {
+            permissionAlertMessage = "Sumber foto tidak tersedia di perangkat ini."
+            showPermissionAlert = true
+            showSourceSheet = false
+            return
+        }
+
         imagePickerSourceType = source
         showSourceSheet = false
 
