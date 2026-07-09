@@ -21,14 +21,12 @@ actor ImageSelectionService {
         }
     }
 
-    func openSettings() {
+    func openSettings() async {
         guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else {
             return
         }
-        Task { @MainActor in
-            guard UIApplication.shared.canOpenURL(settingsURL) else { return }
-            UIApplication.shared.open(settingsURL)
-        }
+        guard UIApplication.shared.canOpenURL(settingsURL) else { return }
+        await UIApplication.shared.open(settingsURL)
     }
 
     func saveImageToPhotoLibrary(_ image: UIImage) async throws {
