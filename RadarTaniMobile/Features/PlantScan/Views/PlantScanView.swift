@@ -81,6 +81,9 @@ struct PlantScanView: View {
         .navigationDestination(isPresented: $viewModel.navigateToCreateReport) {
             if let image = viewModel.selectedImage {
                 CreatePlantReportView(image: image)
+            } else {
+                Color.clear
+                    .onAppear { viewModel.navigateToCreateReport = false }
             }
         }
     }
