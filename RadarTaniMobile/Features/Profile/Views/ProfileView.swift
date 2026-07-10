@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProfileView: View {
     let userEmail: String
+    let reportHistoryStore: ReportHistoryStore
     let onLogout: () -> Void
 
     @State private var viewModel = ProfileViewModel()
@@ -34,6 +35,22 @@ struct ProfileView: View {
 
                 VStack(spacing: 0) {
                     Toggle("Notifikasi", isOn: $viewModel.notificationsEnabled)
+                    Divider().padding(.vertical, 12)
+                    NavigationLink {
+                        ReportHistoryView(reportHistoryStore: reportHistoryStore)
+                    } label: {
+                        HStack {
+                            Label("History Laporan", systemImage: "clock.arrow.circlepath")
+                            Spacer()
+                            Text("\(reportHistoryStore.reports.count)")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(RTDColor.deepGreen)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(RTDColor.softGreen, in: Capsule())
+                        }
+                    }
+                    .buttonStyle(.plain)
                     Divider().padding(.vertical, 12)
                     Label("Bantuan", systemImage: "questionmark.circle.fill")
                         .frame(maxWidth: .infinity, alignment: .leading)

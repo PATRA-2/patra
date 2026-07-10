@@ -94,12 +94,14 @@ struct LoginView: View {
             .buttonStyle(PrimaryButtonStyle())
             .disabled(viewModel.isLoading)
 
-            Button("Daftar sebagai Petani") {}
-                .font(.headline)
-                .foregroundStyle(RTDColor.deepGreen)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-                .disabled(viewModel.isLoading)
+            NavigationLink(value: AuthRoute.registerFarmer) {
+                Text("Daftar sebagai Petani")
+                    .font(.headline)
+                    .foregroundStyle(RTDColor.deepGreen)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .disabled(viewModel.isLoading)
         }
         .padding(20)
         .rtdCard(radius: 28)

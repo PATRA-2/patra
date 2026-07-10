@@ -2,6 +2,7 @@ import SwiftUI
 
 enum MainTab: Hashable {
     case home
+    case farms
     case plantScan
     case radarFeed
     case map
@@ -11,11 +12,11 @@ typealias HomeTab = MainTab
 
 extension MainTab {
     static let report: MainTab = .plantScan
-    static let farms: MainTab = .map
 }
 
 struct MainTabView: View {
     let userEmail: String
+    let reportHistoryStore: ReportHistoryStore
     let onLogout: () -> Void
 
     @State private var selectedTab: MainTab = .home
@@ -45,7 +46,15 @@ struct MainTabView: View {
             .tag(MainTab.home)
 
             NavigationStack {
-                PlantScanView()
+                FarmListView()
+            }
+            .tabItem {
+                Label("Lahan", systemImage: "leaf.fill")
+            }
+            .tag(MainTab.farms)
+
+            NavigationStack {
+                PlantScanView(reportHistoryStore: reportHistoryStore)
             }
             .tabItem {
                 Label("Lapor", systemImage: "camera.fill")
@@ -71,7 +80,7 @@ struct MainTabView: View {
         .tint(RTDColor.deepGreen)
         .sheet(isPresented: $isShowingProfileSheet) {
             NavigationStack {
-                ProfileView(userEmail: userEmail) {
+                ProfileView(userEmail: userEmail, reportHistoryStore: reportHistoryStore) {
                     isShowingProfileSheet = false
                     onLogout()
                 }

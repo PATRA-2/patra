@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct PlantScanView: View {
+    let reportHistoryStore: ReportHistoryStore
+
     @State private var viewModel = PlantScanViewModel()
 
     var body: some View {
@@ -20,7 +22,9 @@ struct PlantScanView: View {
                         Text("Foto gejala tanaman, dapatkan analisis AI, lalu bagikan ke Radar Feed.")
                             .font(.body)
                             .foregroundStyle(.white.opacity(0.84))
-                        Button {} label: {
+                        Button {
+                            viewModel.didTapAmbilFoto()
+                        } label: {
                             Label("Ambil Foto", systemImage: "camera.fill")
                         }
                         .buttonStyle(PrimaryButtonStyle())
@@ -50,5 +54,39 @@ struct PlantScanView: View {
         .background(RTDColor.background)
         .navigationTitle("Lapor")
         .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog("Pilih Sumber Foto", isPresented: $viewModel.showSourceSheet, titleVisibility: .visible) {
+            Button("Kamera") {
+                viewModel.selectSource(.camera)
+            }
+            Button("Galeri") {
+                viewModel.selectSource(.photoLibrary)
+            }
+            Button("Batal", role: .cancel) {}
+        }
+        .sheet(isPresented: $viewModel.showImagePicker) {
+            ImagePickerCoordinator(
+                sourceType: viewModel.imagePickerSourceType,
+                selectedImage: Binding(
+                    get: { viewModel.selectedImage },
+                    set: { viewModel.didPickImage($0) }
+                )
+            )
+        }
+        .alert("Izin Diperlukan", isPresented: $viewModel.showPermissionAlert) {
+            Button("Batal", role: .cancel) {}
+            Button("Buka Pengaturan") {
+                viewModel.openSettings()
+            }
+        } message: {
+            Text(viewModel.permissionAlertMessage)
+        }
+        .navigationDestination(isPresented: $viewModel.navigateToCreateReport) {
+            if let image = viewModel.selectedImage {
+                CreatePlantReportView(image: image, reportHistoryStore: reportHistoryStore)
+            } else {
+                Color.clear
+                    .onAppear { viewModel.navigateToCreateReport = false }
+            }
+        }
     }
 }
