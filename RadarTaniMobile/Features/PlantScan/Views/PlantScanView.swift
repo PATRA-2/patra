@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct PlantScanView: View {
+    let reportHistoryStore: ReportHistoryStore
+
     @State private var viewModel = PlantScanViewModel()
 
     var body: some View {
@@ -80,7 +82,7 @@ struct PlantScanView: View {
         }
         .navigationDestination(isPresented: $viewModel.navigateToCreateReport) {
             if let image = viewModel.selectedImage {
-                CreatePlantReportView(image: image)
+                CreatePlantReportView(image: image, reportHistoryStore: reportHistoryStore)
             } else {
                 Color.clear
                     .onAppear { viewModel.navigateToCreateReport = false }

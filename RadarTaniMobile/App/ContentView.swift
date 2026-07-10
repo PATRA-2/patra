@@ -3,11 +3,12 @@ import SwiftUI
 struct ContentView: View {
     @State private var isAuthenticated = false
     @State private var userEmail = ""
+    @State private var reportHistoryStore = ReportHistoryStore()
 
     var body: some View {
         Group {
             if isAuthenticated {
-                MainTabView(userEmail: userEmail) {
+                MainTabView(userEmail: userEmail, reportHistoryStore: reportHistoryStore) {
                     isAuthenticated = false
                     userEmail = ""
                 }

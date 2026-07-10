@@ -23,7 +23,7 @@ struct RadarFeedView: View {
                     ReportCategoryFilter(selectedCategory: selectedCategoryBinding, reports: viewModel.reports)
                 }
 
-                LazyVStack(spacing: 10) {
+                LazyVStack(spacing: 16) {
                     ForEach(viewModel.filteredReports) { report in
                         RadarReportCard(report: report)
                     }
@@ -170,9 +170,9 @@ private struct RadiusInfoBanner: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(RTDColor.softGreen.opacity(0.72), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(RTDColor.softGreen.opacity(0.72), in: RoundedRectangle(cornerRadius: 32, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
                 .stroke(RTDColor.borderSoft, lineWidth: 1)
         }
     }

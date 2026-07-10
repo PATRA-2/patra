@@ -2,6 +2,8 @@ import SwiftUI
 
 struct CreatePlantReportView: View {
     let image: UIImage
+    let reportHistoryStore: ReportHistoryStore
+
     @State private var draft = PlantReportDraft()
     @Environment(\.dismiss) private var dismiss
 
@@ -47,10 +49,10 @@ struct CreatePlantReportView: View {
                 .rtdCard()
 
                 Button {
-                    // Local save only for this scope.
+                    reportHistoryStore.submit(draft: draft)
                     dismiss()
                 } label: {
-                    Label("Simpan Draft", systemImage: "checkmark")
+                    Label("Kirim Laporan", systemImage: "paperplane.fill")
                 }
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(draft.title.isEmpty)
