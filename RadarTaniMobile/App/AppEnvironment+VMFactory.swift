@@ -13,4 +13,5 @@ extension AppEnvironment {
     func makeNotificationListVM() -> NotificationListViewModel { .init(env: self) }
     func makeProfileVM() -> ProfileViewModel { .init(env: self) }
     func makeOrderListVM() -> OrderListViewModel { .init(env: self) }
+func makeAIChatVM() -> PlantAIChatViewModel { .init(env: self) }
 }
