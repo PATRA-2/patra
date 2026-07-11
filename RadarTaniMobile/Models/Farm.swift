@@ -7,9 +7,29 @@ nonisolated struct FarmOut: Identifiable, Hashable, Codable, Sendable {
     let crop: String
     let location: String
     let coordinate: Coordinate
-    let isActive: Bool
+    var isActive: Bool
     let createdAt: Date
     let updatedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        name: String,
+        crop: String,
+        location: String,
+        coordinate: Coordinate,
+        isActive: Bool,
+        createdAt: Date = .now,
+        updatedAt: Date = .now
+    ) {
+        self.id = id
+        self.name = name
+        self.crop = crop
+        self.location = location
+        self.coordinate = coordinate
+        self.isActive = isActive
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
 
     enum CodingKeys: String, CodingKey {
         case id, name, crop, location, coordinate
