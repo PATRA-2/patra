@@ -2,10 +2,14 @@ import SwiftUI
 
 struct PlantScanView: View {
     @Environment(AppEnvironment.self) private var env
+    @Binding var selectedTab: MainTab
     @State private var viewModel: PlantScanViewModel?
     @State private var path: [PlantScanRoute] = []
     @State private var analysisStore = PlantAnalysisStore()
-    @State private var showAddFarm = false
+
+    init(selectedTab: Binding<MainTab>) {
+        self._selectedTab = selectedTab
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -30,6 +34,9 @@ struct PlantScanView: View {
                 await vm.loadActiveFarm()
                 viewModel = vm
             }
+        }
+        .onAppear {
+            viewModel?.refreshActiveFarm()
         }
     }
 
@@ -76,12 +83,6 @@ struct PlantScanView: View {
                     }
                 )
             )
-        }
-        .sheet(isPresented: $showAddFarm) {
-            NavigationStack { AddFarmView() }
-                .onDisappear {
-                    Task { await viewModel.loadActiveFarm() }
-                }
         }
         .alert("Izin Diperlukan", isPresented: permissionAlertBinding(viewModel)) {
             Button("Batal", role: .cancel) {}
@@ -352,7 +353,7 @@ struct PlantScanView: View {
             }
 
             Button {
-                showAddFarm = true
+                selectedTab = .farms
             } label: {
                 Label("Tambah Lahan", systemImage: "plus.circle.fill")
             }

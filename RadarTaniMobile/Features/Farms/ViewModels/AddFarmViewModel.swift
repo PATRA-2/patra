@@ -46,6 +46,10 @@ final class AddFarmViewModel {
     var isSuccess = false
     var savedFarm: Farm?
     var isReverseGeocoding = false
+    var isRequestingCurrentLocation = false
+    private(set) var suggestions: [MKLocalSearchCompletion] = []
+    private(set) var isSearching = false
+    private var searchErrorMessage: String?
     var cameraPosition: MapCameraPosition = .region(MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: defaultCoordinate.latitude, longitude: defaultCoordinate.longitude),
         span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
@@ -58,6 +62,7 @@ final class AddFarmViewModel {
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var reverseTask: Task<Void, Never>?
     @ObservationIgnored private var lookupToken = UUID()
+    @ObservationIgnored private var cancellables = Set<AnyCancellable>()
 
     static let defaultCoordinate = Coordinate(latitude: -7.79560, longitude: 110.36950)
     static let defaultRegion = MKCoordinateRegion(
@@ -75,12 +80,30 @@ final class AddFarmViewModel {
         self.searchService = searchService ?? FarmPlaceSearchService()
         self.placeResolver = placeResolver ?? MapKitFarmPlaceResolver()
         self.locationManager = locationManager ?? LocationManager()
+
+        self.suggestions = self.searchService.suggestions
+        self.isSearching = self.searchService.isSearching
+        self.searchErrorMessage = self.searchService.errorMessage
+
+        self.searchService.$suggestions
+            .sink { [weak self] suggestions in
+                self?.suggestions = suggestions
+            }
+            .store(in: &cancellables)
+        self.searchService.$isSearching
+            .sink { [weak self] isSearching in
+                self?.isSearching = isSearching
+            }
+            .store(in: &cancellables)
+        self.searchService.$errorMessage
+            .sink { [weak self] errorMessage in
+                self?.searchErrorMessage = errorMessage
+            }
+            .store(in: &cancellables)
     }
 
     var cropChoices: [CropChoice] { CropChoice.allCases }
-    var suggestions: [MKLocalSearchCompletion] { searchService.suggestions }
-    var isSearching: Bool { searchService.isSearching }
-    var locationErrorMessage: String? { searchService.errorMessage ?? locationManager.errorMessage }
+    var locationErrorMessage: String? { searchErrorMessage ?? locationManager.errorMessage }
     var progressText: String { "Langkah \(step.rawValue) dari 3" }
 
     var finalCrop: String {
@@ -145,6 +168,8 @@ final class AddFarmViewModel {
     }
 
     func goBack() -> Bool {
+        guard !isSaving else { return true }
+
         switch step {
         case .information:
             return false
@@ -158,6 +183,9 @@ final class AddFarmViewModel {
     }
 
     func updateSearchText(_ text: String) {
+        lookupToken = UUID()
+        reverseTask?.cancel()
+        isReverseGeocoding = false
         locationQuery = text
         selectedPlace = nil
         selectedAddress = ""
@@ -205,6 +233,7 @@ final class AddFarmViewModel {
         lookupToken = UUID()
         let token = lookupToken
         selectedCoordinate = coordinate
+        locationQuery = ""
         selectedPlace = nil
         selectedAddress = ""
         locationMessage = "Mencari nama lokasi..."
@@ -220,8 +249,12 @@ final class AddFarmViewModel {
     }
 
     func useCurrentLocation() {
+        guard !isRequestingCurrentLocation else { return }
+
+        isRequestingCurrentLocation = true
         Task { [weak self] in
             guard let self else { return }
+            defer { isRequestingCurrentLocation = false }
             do {
                 let coordinate = try await locationManager.requestCurrentLocation()
                 selectCoordinate(Coordinate(latitude: coordinate.latitude, longitude: coordinate.longitude))
@@ -239,6 +272,11 @@ final class AddFarmViewModel {
 
         isSaving = true
         try? await Task.sleep(for: .milliseconds(450))
+        guard !Task.isCancelled else {
+            isSaving = false
+            return
+        }
+
         savedFarm = farmStore.addFarm(
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             crop: finalCrop,

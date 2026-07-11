@@ -10,8 +10,6 @@ struct FarmDetailView: View {
     @State private var isActive: Bool
     @State private var isSaving = false
     @State private var showDeleteConfirm = false
-    @State private var showForceDeleteConfirm = false
-    @State private var isForceDelete = false
     @State private var errorMessage: String?
     @Environment(\.dismiss) private var dismiss
 
@@ -66,54 +64,33 @@ struct FarmDetailView: View {
         .navigationTitle("Detail Lahan")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Hapus Lahan?", isPresented: $showDeleteConfirm) {
-            Button("Hapus", role: .destructive) { Task { await delete() } }
+            Button("Hapus", role: .destructive) { delete() }
             Button("Batal", role: .cancel) {}
         } message: {
             Text("Lahan '\(farm.name)' akan dihapus dari daftar Anda.")
-        }
-        .alert("Laporan Juga Ikut Terhapus", isPresented: $showForceDeleteConfirm) {
-            Button("Hapus Semua", role: .destructive) { Task { isForceDelete = true; await delete() } }
-            Button("Batal", role: .cancel) { isForceDelete = false }
-        } message: {
-            Text("Lahan '\(farm.name)' masih memiliki laporan. Semua laporan di lahan ini juga akan dihapus. Lanjutkan?")
         }
     }
 
     private func save() async {
         isSaving = true; defer { isSaving = false }
-        do {
-            let updated = try await env.farms.update(farm.id,
-                FarmUpdate(name: name.isEmpty ? nil : name,
-                          crop: crop.isEmpty ? nil : crop,
-                          location: location.isEmpty ? nil : location,
-                          coordinate: nil,
-                          isActive: isActive))
+        if let updated = env.farmStore.updateFarm(
+            id: farm.id,
+            name: name,
+            crop: crop,
+            location: location,
+            coordinate: farm.coordinate,
+            isActive: isActive
+        ) {
             farm = updated
             dismiss()
-        } catch {
-            errorMessage = (error as? APIError)?.userMessage ?? "Gagal menyimpan."
+        } else {
+            errorMessage = "Lahan tidak ditemukan di perangkat ini."
         }
     }
 
-    private func delete() async {
-        isSaving = true; defer { isSaving = false }
-        do {
-            if isForceDelete {
-                try await env.apiClient.requestVoid(APIRoute.farmDelete(farm.id, force: true))
-            } else {
-                try await env.farms.delete(farm.id)
-            }
-            dismiss()
-        } catch let error as APIError {
-            if case .server(let s) = error, s.code == "FARM_IN_USE" {
-                showForceDeleteConfirm = true
-                isSaving = false
-            } else {
-                errorMessage = error.userMessage
-            }
-        } catch {
-            errorMessage = "Gagal menghapus."
-        }
+    private func delete() {
+        env.farmStore.deleteFarm(id: farm.id)
+        dismiss()
     }
 }
 
