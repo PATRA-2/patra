@@ -22,6 +22,9 @@ struct ContentView: View {
             }
         }
         .animation(.snappy(duration: 0.28), value: env.session.isAuthenticated)
+        .task {
+            await env.session.restore(using: env.auth)
+        }
     }
 
     private func logout() async {

@@ -1,6 +1,6 @@
 import Foundation
 
-enum HTTPMethod: String, Sendable {
+nonisolated enum HTTPMethod: String, Sendable {
     case get = "GET"
     case post = "POST"
     case put = "PUT"
@@ -8,10 +8,10 @@ enum HTTPMethod: String, Sendable {
     case delete = "DELETE"
 }
 
-enum AuthRequirement: Sendable { case required, optional, public_ }
-enum AcceptsType: Sendable { case json, multipart }
+nonisolated enum AuthRequirement: Sendable { case required, optional, public_ }
+nonisolated enum AcceptsType: Sendable { case json, multipart }
 
-struct APIEndpoint: Sendable {
+nonisolated struct APIEndpoint: Sendable {
     var path: String
     var method: HTTPMethod = .get
     var query: [URLQueryItem] = []

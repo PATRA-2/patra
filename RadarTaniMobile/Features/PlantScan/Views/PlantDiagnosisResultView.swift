@@ -35,8 +35,7 @@ struct PlantDiagnosisResultView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showConfirmation) {
             if let task, let diagnosis = task.diagnosis {
-                PlantReportConfirmationSheet(task: task, diagnosis: diagnosis) {
-                    analysisStore.markReported(taskID: task.id)
+                PlantReportConfirmationSheet(task: task, diagnosis: diagnosis) { _ in
                     path.append(.success(task.id))
                 }
                 .presentationDetents([.medium, .large])

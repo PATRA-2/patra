@@ -10,10 +10,20 @@ struct ImagePickerCoordinator: UIViewControllerRepresentable {
         let picker = UIImagePickerController()
         picker.sourceType = sourceType
         picker.delegate = context.coordinator
+
+        if sourceType == .camera {
+            picker.modalPresentationStyle = .fullScreen
+            picker.view.backgroundColor = .black
+        }
+
         return picker
     }
 
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {
+        if sourceType == .camera, uiViewController.view.backgroundColor != .black {
+            uiViewController.view.backgroundColor = .black
+        }
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)

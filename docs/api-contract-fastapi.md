@@ -632,6 +632,34 @@ Response `200`:
 }
 ```
 
+### POST `/plant-ai/chat`
+
+Requires auth. Mengirim pertanyaan lanjutan tentang hasil diagnosis yang sedang tampil di app. Percakapan tidak disimpan oleh backend; setiap request membawa konteks diagnosis yang dibutuhkan.
+
+Request JSON:
+
+```json
+{
+  "message": "Apa yang harus dilakukan hari ini?",
+  "diagnosis": {
+    "prediction": "Kemungkinan penyakit bercak daun",
+    "confidence": 82,
+    "symptoms": "Daun menunjukkan bercak cokelat.",
+    "recommendation": "Pisahkan tanaman terdampak dan pantau penyebarannya."
+  }
+}
+```
+
+Response `200`:
+
+```json
+{
+  "data": {
+    "reply": "Tandai area terdampak dan foto ulang dari sudut yang sama untuk pemantauan."
+  }
+}
+```
+
 ## 6.6 Radar Feed
 
 ### GET `/radar-feed/reports`
@@ -864,4 +892,3 @@ curl -X POST "https://api.radar-tani.local/api/v1/plant-reports" \
 - Batas ukuran foto final: kontrak ini mengusulkan 10 MB.
 - Penyimpanan foto memakai object storage/CDN apa?
 - Apakah kategori `Bibit` dan `Kerja Tani` di Radar Feed dibuat dari fitur laporan terpisah atau berasal dari backend/koperasi?
-

@@ -69,6 +69,8 @@ async def create_order(
         report = await session.get(PlantReport, payload.related_report_id)
         if report is None:
             raise AppError(404, "NOT_FOUND", "Laporan terkait tidak ditemukan.")
+        if report.user_id != user.id:
+            raise AppError(403, "FORBIDDEN", "Laporan terkait bukan milik user ini.")
     order = PesticideOrder(
         user_id=user.id,
         related_report_id=payload.related_report_id,

@@ -2,7 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Response, status
-from sqlalchemy import func, select, update, delete
+from sqlalchemy import delete, func, select, update
 
 from app.dependencies import CurrentUser, DBSession
 from app.errors import AppError

@@ -6,15 +6,39 @@ import Observation
 @Observable
 final class RadarMapViewModel {
     private(set) var reports: [MapReportOut] = []
+    private(set) var activeFarm: Farm?
     private(set) var isLoading = false
     private(set) var errorMessage: String?
     private let feed: RadarFeedService
+    private let farmStore: FarmStore
 
     let initialRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: -7.7956, longitude: 110.3695),
         span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08))
 
-    init(env: AppEnvironment) { self.feed = env.feed }
+    init(env: AppEnvironment) {
+        self.feed = env.feed
+        self.farmStore = env.farmStore
+        self.activeFarm = env.farmStore.activeFarm
+    }
+
+    var preferredInitialRegion: MKCoordinateRegion {
+        guard let activeFarm else { return initialRegion }
+        return MKCoordinateRegion(
+            center: CLLocationCoordinate2D(
+                latitude: activeFarm.coordinate.latitude,
+                longitude: activeFarm.coordinate.longitude
+            ),
+            span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+        )
+    }
+
+    func loadActiveFarm() async {
+        if farmStore.farms.isEmpty {
+            await farmStore.load()
+        }
+        activeFarm = farmStore.activeFarm
+    }
 
     func load(region: MKCoordinateRegion? = nil) async {
         isLoading = true; defer { isLoading = false }

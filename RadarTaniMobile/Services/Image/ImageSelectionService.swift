@@ -31,12 +31,6 @@ actor ImageSelectionService {
         }
     }
 
-    func saveImageToPhotoLibrary(_ image: UIImage) async throws {
-        try await PHPhotoLibrary.shared().performChanges {
-            PHAssetChangeRequest.creationRequestForAsset(from: image)
-        }
-    }
-
     private func requestCameraPermission() async -> PermissionStatus {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
         switch status {

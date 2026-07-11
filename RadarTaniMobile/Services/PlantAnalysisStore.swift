@@ -9,18 +9,17 @@ final class PlantAnalysisStore {
     private(set) var respondingChatTaskIDs: Set<UUID> = []
     var pendingImage: UIImage?
 
-    @ObservationIgnored private let analysisService: any PlantAnalysisService
-    @ObservationIgnored private let chatService: any PlantAIChatService
+    @ObservationIgnored private var aiService: AIService?
+    @ObservationIgnored private var reportService: ReportService?
     @ObservationIgnored private var runners: [UUID: Task<Void, Never>] = [:]
 
-    init(
-        tasks: [PlantAnalysisTask]? = nil,
-        analysisService: (any PlantAnalysisService)? = nil,
-        chatService: (any PlantAIChatService)? = nil
-    ) {
-        self.tasks = tasks ?? []
-        self.analysisService = analysisService ?? MockPlantAnalysisService()
-        self.chatService = chatService ?? MockPlantAIChatService()
+    init(tasks: [PlantAnalysisTask] = []) {
+        self.tasks = tasks
+    }
+
+    func configure(aiService: AIService, reportService: ReportService) {
+        self.aiService = aiService
+        self.reportService = reportService
     }
 
     var runningTasks: [PlantAnalysisTask] {
@@ -67,14 +66,33 @@ final class PlantAnalysisStore {
         start(taskID: taskID)
     }
 
-    func markReported(taskID: UUID) {
-        update(taskID: taskID) { task in
-            task.status = .reported
-            task.stageTitle = "Laporan diterima koperasi"
-            task.progress = 1
+    func submitReport(taskID: UUID) async throws -> PlantReportOut {
+        guard let service = reportService,
+              let task = task(withID: taskID) else {
+            throw APIError.unknown
+        }
+
+        let report = try await service.create(
+            image: task.image,
+            title: task.draft.title,
+            category: task.draft.category.rawValue,
+            description: task.draft.description.isEmpty ? nil : task.draft.description,
+            farmId: task.farm.id,
+            latitude: task.farm.coordinate.latitude,
+            longitude: task.farm.coordinate.longitude,
+            publishToFeed: true
+        )
+        update(taskID: taskID) { current in
+            current.report = report
+            current.diagnosis = report.diagnosis ?? current.diagnosis
+            current.status = .reported
+            current.stageTitle = report.status
+            current.progress = 1
+            current.errorMessage = nil
         }
         pendingImage = nil
         HapticManager.success()
+        return report
     }
 
     func isResponding(in taskID: UUID) -> Bool {
@@ -84,6 +102,7 @@ final class PlantAnalysisStore {
     func sendChatMessage(_ text: String, taskID: UUID) async {
         let message = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty,
+              let service = aiService,
               let index = tasks.firstIndex(where: { $0.id == taskID }),
               let diagnosis = tasks[index].diagnosis,
               !respondingChatTaskIDs.contains(taskID) else { return }
@@ -91,7 +110,12 @@ final class PlantAnalysisStore {
         tasks[index].chatMessages.append(PlantChatMessage(role: .farmer, text: message))
         respondingChatTaskIDs.insert(taskID)
 
-        let response = await chatService.reply(to: message, diagnosis: diagnosis)
+        let response: String
+        do {
+            response = try await service.chat(message: message, diagnosis: diagnosis)
+        } catch {
+            response = (error as? APIError)?.userMessage ?? "Jawaban AI belum dapat dimuat dari server."
+        }
 
         guard let refreshedIndex = tasks.firstIndex(where: { $0.id == taskID }) else {
             respondingChatTaskIDs.remove(taskID)
@@ -113,46 +137,41 @@ final class PlantAnalysisStore {
 
     private func run(taskID: UUID) async {
         do {
+            guard let service = aiService,
+                  let currentTask = task(withID: taskID) else {
+                throw APIError.unknown
+            }
+
             update(taskID: taskID) { task in
                 task.status = .uploading
-                task.stageTitle = "Mengunggah foto tanaman"
-                task.progress = 0.22
+                task.stageTitle = "Mengunggah foto tanaman ke server"
+                task.progress = 0.25
             }
-            try await Task.sleep(for: .milliseconds(650))
-
             update(taskID: taskID) { task in
                 task.status = .analyzing
-                task.stageTitle = "AI membaca pola gejala"
-                task.progress = 0.52
+                task.stageTitle = "AI backend membaca pola gejala"
+                task.progress = 0.55
             }
-            try await Task.sleep(for: .milliseconds(700))
 
-            guard let currentTask = task(withID: taskID) else { return }
-            let request = PlantAnalysisRequest(
-                title: currentTask.draft.title,
-                description: currentTask.draft.description,
-                category: currentTask.draft.category.rawValue,
+            let diagnosis = try await service.diagnose(
+                image: currentTask.image,
                 crop: currentTask.farm.crop,
-                attempt: currentTask.attempt
+                symptomNotes: currentTask.draft.description.isEmpty
+                    ? nil
+                    : currentTask.draft.description
             )
-            let diagnosis = try await analysisService.analyze(request)
-
-            update(taskID: taskID) { task in
-                task.stageTitle = "Menyusun rekomendasi awal"
-                task.progress = 0.84
-            }
-            try await Task.sleep(for: .milliseconds(550))
 
             update(taskID: taskID) { task in
                 task.status = .completed
-                task.stageTitle = "Analisis siap dilihat"
+                task.stageTitle = "Analisis backend siap dilihat"
                 task.progress = 1
                 task.diagnosis = diagnosis
+                task.errorMessage = nil
                 if task.chatMessages.isEmpty {
                     task.chatMessages = [
                         PlantChatMessage(
                             role: .assistant,
-                            text: "Saya sudah membaca hasil perkiraan \(diagnosis.prediction.lowercased()). Tanyakan langkah pemantauan yang aman sebelum laporan dikirim ke koperasi."
+                            text: "Hasil analisis sudah diterima dari server. Tanyakan langkah pemantauan yang aman sebelum laporan dikirim ke koperasi."
                         )
                     ]
                 }
@@ -164,7 +183,7 @@ final class PlantAnalysisStore {
             update(taskID: taskID) { task in
                 task.status = .failed
                 task.stageTitle = "Analisis gagal"
-                task.errorMessage = error.localizedDescription
+                task.errorMessage = (error as? APIError)?.userMessage ?? error.localizedDescription
             }
         }
 

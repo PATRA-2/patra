@@ -20,8 +20,9 @@ final class AppEnvironment {
         let client = APIClient(baseURL: baseURL, tokenStore: tokenStore, session: session)
         self.apiClient = client
         self.auth = AuthService(client: client)
-        self.farms = FarmService(client: client)
-        self.farmStore = FarmStore()
+        let farmService = FarmService(client: client)
+        self.farms = farmService
+        self.farmStore = FarmStore(service: farmService)
         self.reports = ReportService(client: client)
         self.feed = RadarFeedService(client: client)
         self.notifications = NotificationService(client: client)

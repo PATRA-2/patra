@@ -14,6 +14,10 @@ struct FarmListView: View {
     var body: some View {
         List {
             if let viewModel {
+                if let errorMessage = viewModel.errorMessage {
+                    Text(errorMessage)
+                        .foregroundStyle(RTDColor.warningRed)
+                }
                 ForEach(viewModel.farms) { farm in
                     NavigationLink {
                         FarmDetailView(farm: farm)
@@ -45,6 +49,7 @@ struct FarmListView: View {
         }
         .task {
             if viewModel == nil { viewModel = env.makeFarmListVM() }
+            await viewModel?.load()
         }
         .alert("Hapus Lahan?", isPresented: .init(
             get: { deleteConfirmation != nil },
@@ -52,8 +57,10 @@ struct FarmListView: View {
         )) {
             if let farm = deleteConfirmation?.farm {
                 Button("Hapus", role: .destructive) {
-                    _ = viewModel?.delete(farm)
-                    deleteConfirmation = nil
+                    Task {
+                        _ = await viewModel?.delete(farm)
+                        deleteConfirmation = nil
+                    }
                 }
                 Button("Batal", role: .cancel) {
                     deleteConfirmation = nil
@@ -61,7 +68,7 @@ struct FarmListView: View {
             }
         } message: {
             if let farm = deleteConfirmation?.farm {
-                Text("Lahan '\(farm.name)' akan dihapus dari daftar di perangkat ini.")
+                Text("Lahan '\(farm.name)' akan dihapus dari akun Anda di server.")
             }
         }
     }

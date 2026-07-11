@@ -7,6 +7,7 @@ struct AddFarmView: View {
     @Binding var selectedTab: MainTab
     @State private var viewModel: AddFarmViewModel?
     @State private var showDiscardAlert = false
+    @FocusState private var isLocationSearchFocused: Bool
 
     init(selectedTab: Binding<MainTab>) {
         self._selectedTab = selectedTab
@@ -146,89 +147,47 @@ struct AddFarmView: View {
     }
 
     private func locationStep(_ viewModel: AddFarmViewModel) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Cari Lokasi")
-                    .font(.headline)
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Pilih lokasi lahan")
+                    .font(.title3.weight(.bold))
                     .foregroundStyle(RTDColor.textPrimary)
-
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(RTDColor.textSecondary)
-                        .accessibilityLabel("Cari")
-
-                    TextField("Cari nama tempat, desa, atau daerah", text: Binding(
-                        get: { viewModel.locationQuery },
-                        set: { viewModel.updateSearchText($0) }
-                    ))
-                    .textInputAutocapitalization(.words)
-
-                    if !viewModel.locationQuery.isEmpty {
-                        Button {
-                            viewModel.clearLocation()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(RTDColor.textSecondary)
-                        }
-                        .accessibilityLabel("Bersihkan pencarian lokasi")
-                    }
-                }
-                .padding(14)
-                .background(RTDColor.cardBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(RTDColor.borderSoft, lineWidth: 1)
-                }
-
-                if viewModel.isSearching {
-                    Label("Mencari nama lokasi...", systemImage: "location.magnifyingglass")
-                        .font(.callout)
-                        .foregroundStyle(RTDColor.textSecondary)
-                }
-
-                if !viewModel.suggestions.isEmpty {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(viewModel.suggestions, id: \.self) { completion in
-                            Button {
-                                viewModel.selectSuggestion(completion)
-                            } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(completion.title)
-                                        .font(.callout.weight(.semibold))
-                                        .foregroundStyle(RTDColor.textPrimary)
-                                    if !completion.subtitle.isEmpty {
-                                        Text(completion.subtitle)
-                                            .font(.caption)
-                                            .foregroundStyle(RTDColor.textSecondary)
-                                    }
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.vertical, 12)
-                                .padding(.horizontal, 14)
-                            }
-                            .buttonStyle(.plain)
-
-                            if completion != viewModel.suggestions.last {
-                                Divider()
-                                    .padding(.leading, 14)
-                            }
-                        }
-                    }
-                    .background(RTDColor.cardBackground)
-                    .rtdCard(radius: 18)
-                }
+                Text("Cari lokasi atau ketuk peta untuk menaruh pin.")
+                    .font(.body)
+                    .foregroundStyle(RTDColor.textSecondary)
             }
 
-            FarmMapPickerView(
-                coordinate: viewModel.selectedCoordinate,
-                markerTitle: viewModel.markerTitle,
-                cameraPosition: Bindable(viewModel).cameraPosition,
-                onCoordinateSelected: viewModel.selectCoordinate,
-                onRegionChanged: viewModel.updateSearchRegion
-            )
-            .frame(height: 280)
+            ZStack(alignment: .top) {
+                FarmMapPickerView(
+                    coordinate: viewModel.selectedCoordinate,
+                    markerTitle: viewModel.markerTitle,
+                    isResolving: viewModel.isReverseGeocoding,
+                    mode: .interactive,
+                    cameraPosition: Bindable(viewModel).cameraPosition,
+                    onCoordinateSelected: { coordinate in
+                        isLocationSearchFocused = false
+                        viewModel.selectCoordinate(coordinate)
+                    },
+                    onRegionChanged: viewModel.updateSearchRegion
+                )
+
+                VStack(spacing: 8) {
+                    locationSearchField(viewModel)
+
+                    if viewModel.isSearching ||
+                        !viewModel.suggestions.isEmpty ||
+                        viewModel.searchFeedbackMessage != nil {
+                        locationSearchResults(viewModel)
+                    }
+                }
+                .padding(12)
+            }
+            .frame(height: 390)
+            .zIndex(2)
 
             Button {
+                isLocationSearchFocused = false
+                viewModel.clearSearch()
                 viewModel.useCurrentLocation()
             } label: {
                 if viewModel.isRequestingCurrentLocation {
@@ -245,22 +204,125 @@ struct AddFarmView: View {
             .background(RTDColor.softGreen, in: Capsule())
             .disabled(viewModel.isRequestingCurrentLocation)
 
-            if let message = viewModel.locationErrorMessage {
+            if let message = viewModel.currentLocationErrorMessage {
                 Text(message)
                     .font(.callout)
                     .foregroundStyle(RTDColor.warningRed)
             }
 
-            if let message = viewModel.locationMessage {
+            if viewModel.selectedCoordinate == nil, let message = viewModel.locationMessage {
                 Text(message)
                     .font(.callout)
-                    .foregroundStyle(message == "Mencari nama lokasi..." ? RTDColor.textSecondary : RTDColor.warningOrange)
+                    .foregroundStyle(RTDColor.warningOrange)
             }
 
             if viewModel.selectedCoordinate != nil {
                 selectedLocationCard(viewModel)
             }
         }
+    }
+
+    private func locationSearchField(_ viewModel: AddFarmViewModel) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(RTDColor.deepGreen)
+                .accessibilityHidden(true)
+
+            TextField("Cari nama tempat, desa, atau daerah", text: Binding(
+                get: { viewModel.searchText },
+                set: { viewModel.updateSearchText($0) }
+            ))
+            .textInputAutocapitalization(.words)
+            .submitLabel(.search)
+            .focused($isLocationSearchFocused)
+
+            if !viewModel.searchText.isEmpty {
+                Button {
+                    viewModel.clearSearch()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(RTDColor.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Bersihkan pencarian")
+                .accessibilityHint("Lokasi yang sudah dipilih tidak akan dihapus")
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 52)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(isLocationSearchFocused ? RTDColor.deepGreen : RTDColor.borderSoft, lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.1), radius: 10, y: 4)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func locationSearchResults(_ viewModel: AddFarmViewModel) -> some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if viewModel.isSearching {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Mencari lokasi…")
+                            .font(.callout)
+                            .foregroundStyle(RTDColor.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                } else if let message = viewModel.searchFeedbackMessage {
+                    Label(message, systemImage: "wifi.exclamationmark")
+                        .font(.callout)
+                        .foregroundStyle(RTDColor.warningOrange)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
+                } else {
+                    ForEach(Array(viewModel.suggestions.enumerated()), id: \.element) { index, completion in
+                        Button {
+                            isLocationSearchFocused = false
+                            viewModel.selectSuggestion(completion)
+                        } label: {
+                            HStack(alignment: .top, spacing: 11) {
+                                Image(systemName: "mappin.and.ellipse")
+                                    .foregroundStyle(RTDColor.deepGreen)
+                                    .frame(width: 20)
+                                    .accessibilityHidden(true)
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(completion.title)
+                                        .font(.callout.weight(.semibold))
+                                        .foregroundStyle(RTDColor.textPrimary)
+                                    if !completion.subtitle.isEmpty {
+                                        Text(completion.subtitle)
+                                            .font(.caption)
+                                            .foregroundStyle(RTDColor.textSecondary)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel([completion.title, completion.subtitle].filter { !$0.isEmpty }.joined(separator: ", "))
+
+                        if index < viewModel.suggestions.count - 1 {
+                            Divider()
+                                .padding(.leading, 45)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxHeight: 240)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(RTDColor.borderSoft, lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.14), radius: 12, y: 5)
     }
 
     private func confirmationStep(_ viewModel: AddFarmViewModel) -> some View {
@@ -278,6 +340,8 @@ struct AddFarmView: View {
             FarmMapPickerView(
                 coordinate: viewModel.selectedCoordinate,
                 markerTitle: viewModel.markerTitle,
+                isResolving: false,
+                mode: .preview,
                 cameraPosition: Bindable(viewModel).cameraPosition,
                 onCoordinateSelected: { _ in },
                 onRegionChanged: { _ in }
@@ -345,19 +409,68 @@ struct AddFarmView: View {
     }
 
     private func selectedLocationCard(_ viewModel: AddFarmViewModel) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Lokasi dipilih", systemImage: "checkmark.seal.fill")
-                .font(.headline)
-                .foregroundStyle(RTDColor.deepGreen)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Lokasi dipilih", systemImage: "checkmark.seal.fill")
+                    .font(.headline)
+                    .foregroundStyle(RTDColor.deepGreen)
 
-            Text(viewModel.finalLocationName.isEmpty ? "Nama lokasi belum diisi" : viewModel.finalLocationName)
-                .font(.body)
-                .foregroundStyle(RTDColor.textPrimary)
+                Spacer()
+
+                Button {
+                    viewModel.clearSelectedLocation()
+                } label: {
+                    Label("Hapus", systemImage: "trash")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(RTDColor.warningRed)
+                .accessibilityHint("Menghapus titik dan nama lokasi yang dipilih")
+            }
+
+            if viewModel.isReverseGeocoding {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Mencari nama tempat, desa, atau daerah…")
+                        .font(.body)
+                        .foregroundStyle(RTDColor.textSecondary)
+                }
+            } else if viewModel.finalLocationName.isEmpty {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("Nama lokasi belum ditemukan")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(RTDColor.textPrimary)
+
+                    TextField("Isi nama lokasi", text: Binding(
+                        get: { viewModel.selectedLocationName },
+                        set: { viewModel.updateSelectedLocationName($0) }
+                    ))
+                    .textInputAutocapitalization(.words)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 46)
+                    .background(RTDColor.mutedBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(RTDColor.borderSoft, lineWidth: 1)
+                    }
+                }
+            } else {
+                Text(viewModel.finalLocationName)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(RTDColor.textPrimary)
+            }
 
             if !viewModel.selectedAddress.isEmpty {
                 Text(viewModel.selectedAddress)
                     .font(.callout)
                     .foregroundStyle(RTDColor.textSecondary)
+            }
+
+            if !viewModel.isReverseGeocoding, let message = viewModel.locationMessage {
+                Label(message, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(RTDColor.warningOrange)
             }
 
             Text(viewModel.coordinateText)

@@ -19,40 +19,24 @@ final class PlantScanViewModel {
     var navigateToCreateReport = false
     var permissionAlertMessage = ""
 
-    // Backend integration state
     var activeFarm: FarmOut?
-    private(set) var createdReport: PlantReportOut?
-    private(set) var isLoading = false
     private(set) var errorMessage: String?
 
     private let imageSelectionService = ImageSelectionService()
-    private let reportService: ReportService
     private let farmStore: FarmStore
 
     init(env: AppEnvironment, farmStore: FarmStore) {
-        self.reportService = env.reports
+        _ = env
         self.farmStore = farmStore
     }
 
     func loadActiveFarm() async {
+        await farmStore.load()
         activeFarm = farmStore.activeFarm
     }
 
     func refreshActiveFarm() {
         activeFarm = farmStore.activeFarm
-    }
-
-    func submitReport(title: String, category: String, description: String?,
-                      farmId: UUID?, latitude: Double?, longitude: Double?) async {
-        guard let image = selectedImage else { errorMessage = "Pilih foto dulu."; return }
-        isLoading = true; defer { isLoading = false }
-        do {
-            createdReport = try await reportService.create(
-                image: image, title: title, category: category, description: description,
-                farmId: farmId, latitude: latitude, longitude: longitude, publishToFeed: true)
-        } catch {
-            errorMessage = (error as? APIError)?.userMessage ?? "Gagal mengirim laporan."
-        }
     }
 
     func didTapAmbilFoto() {
@@ -79,13 +63,6 @@ final class PlantScanViewModel {
     func didPickImage(_ image: UIImage?) {
         guard let image else { return }
         selectedImage = image
-
-        if imagePickerSourceType == .camera {
-            Task {
-                try? await imageSelectionService.saveImageToPhotoLibrary(image)
-            }
-        }
-
         navigateToCreateReport = true
     }
 

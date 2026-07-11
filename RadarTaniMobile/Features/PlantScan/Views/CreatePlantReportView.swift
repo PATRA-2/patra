@@ -72,12 +72,12 @@ struct CreatePlantReportView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(RTDColor.textSecondary)
 
-                Label("Penyakit", systemImage: "cross.case.fill")
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(RTDColor.textPrimary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(RTDColor.warningOrange.opacity(0.14), in: Capsule())
+                Picker("Kategori laporan", selection: $draft.category) {
+                    ForEach(PlantReportCategory.allCases) { category in
+                        Text(category.rawValue).tag(category)
+                    }
+                }
+                .pickerStyle(.segmented)
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -174,7 +174,6 @@ struct CreatePlantReportView: View {
         }
 
         draft.title = trimmedTitle
-        draft.category = .disease
         let taskID = analysisStore.enqueue(image: image, draft: draft, farm: farm)
         path.append(.processing(taskID))
     }

@@ -7,12 +7,13 @@ final class NotificationListViewModel {
     private(set) var items: [NotificationOut] = []
     private(set) var isLoading = false
     private(set) var errorMessage: String?
+    var unreadOnly = false
     private let notifications: NotificationService
     init(env: AppEnvironment) { self.notifications = env.notifications }
 
     func load() async {
         isLoading = true; defer { isLoading = false }
-        do { items = try await notifications.list().items } catch {
+        do { items = try await notifications.list(unreadOnly: unreadOnly).items } catch {
             errorMessage = (error as? APIError)?.userMessage ?? "Gagal memuat notifikasi."
         }
     }

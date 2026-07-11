@@ -81,7 +81,7 @@ struct MainTabView: View {
                     onLogout()
                 })
             }
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
     }

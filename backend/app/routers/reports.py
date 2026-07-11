@@ -15,6 +15,8 @@ from app.schemas import (
     DiagnosisResult,
     PaginatedData,
     PlantCategory,
+    PlantChatIn,
+    PlantChatOut,
     PlantReportOut,
     PlantReportUpdate,
 )
@@ -272,3 +274,22 @@ async def create_plant_diagnosis(
     await session.commit()
     await session.refresh(diagnosis)
     return DataResponse(data=diagnosis_out(diagnosis))
+
+
+@router.post("/plant-ai/chat", response_model=DataResponse[PlantChatOut])
+async def chat_about_plant_diagnosis(
+    payload: PlantChatIn,
+    request: Request,
+    _user: CurrentUser,
+    settings: RequestSettings,
+) -> DataResponse[PlantChatOut]:
+    try:
+        reply = await asyncio.wait_for(
+            request.app.state.services.ai.chat(payload.message, payload.diagnosis),
+            timeout=settings.standalone_ai_timeout_seconds,
+        )
+    except TimeoutError as exc:
+        raise AppError(504, "AI_TIMEOUT", "Jawaban AI melewati batas waktu.") from exc
+    except Exception as exc:
+        raise AppError(503, "AI_UNAVAILABLE", "Layanan chat AI sedang tidak tersedia.") from exc
+    return DataResponse(data=PlantChatOut(reply=reply))

@@ -36,12 +36,15 @@ final class AddFarmViewModel {
     var name = ""
     var selectedCrop: CropChoice?
     var customCrop = ""
-    var locationQuery = ""
+    var searchText = ""
+    var selectedLocationName = ""
     var selectedPlace: FarmPlaceResult?
     var selectedCoordinate: Coordinate?
     var selectedAddress = ""
     var validationMessage: String?
     var locationMessage: String?
+    var searchActionMessage: String?
+    var currentLocationActionMessage: String?
     var isSaving = false
     var isSuccess = false
     var savedFarm: Farm?
@@ -60,6 +63,7 @@ final class AddFarmViewModel {
     @ObservationIgnored private let placeResolver: any FarmPlaceResolving
     @ObservationIgnored private let locationManager: LocationManager
     @ObservationIgnored private var searchTask: Task<Void, Never>?
+    @ObservationIgnored private var placeSearchTask: Task<Void, Never>?
     @ObservationIgnored private var reverseTask: Task<Void, Never>?
     @ObservationIgnored private var lookupToken = UUID()
     @ObservationIgnored private var cancellables = Set<AnyCancellable>()
@@ -103,7 +107,8 @@ final class AddFarmViewModel {
     }
 
     var cropChoices: [CropChoice] { CropChoice.allCases }
-    var locationErrorMessage: String? { searchErrorMessage ?? locationManager.errorMessage }
+    var searchFeedbackMessage: String? { searchErrorMessage ?? searchActionMessage }
+    var currentLocationErrorMessage: String? { locationManager.errorMessage ?? currentLocationActionMessage }
     var progressText: String { "Langkah \(step.rawValue) dari 3" }
 
     var finalCrop: String {
@@ -114,8 +119,11 @@ final class AddFarmViewModel {
         }
     }
 
-    var finalLocationName: String { locationQuery.trimmingCharacters(in: .whitespacesAndNewlines) }
-    var markerTitle: String { finalLocationName.isEmpty ? "Lokasi lahan" : finalLocationName }
+    var finalLocationName: String { selectedLocationName.trimmingCharacters(in: .whitespacesAndNewlines) }
+    var markerTitle: String {
+        if isReverseGeocoding { return "Mencari nama lokasi…" }
+        return finalLocationName.isEmpty ? "Lokasi lahan" : finalLocationName
+    }
 
     var coordinateText: String {
         guard let selectedCoordinate else { return "Koordinat belum dipilih" }
@@ -126,7 +134,8 @@ final class AddFarmViewModel {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
         selectedCrop != nil ||
         !customCrop.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-        !locationQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        !selectedLocationName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
         selectedCoordinate != nil
     }
 
@@ -157,7 +166,7 @@ final class AddFarmViewModel {
             step = .location
         case .location:
             guard canContinueLocation else {
-                validationMessage = "Pilih titik lahan dan isi nama lokasi minimal tiga karakter."
+                validationMessage = "Pilih titik lahan dan pastikan nama lokasi berisi minimal tiga karakter."
                 return
             }
             step = .confirmation
@@ -183,14 +192,19 @@ final class AddFarmViewModel {
     }
 
     func updateSearchText(_ text: String) {
-        lookupToken = UUID()
-        reverseTask?.cancel()
-        isReverseGeocoding = false
-        locationQuery = text
-        selectedPlace = nil
-        selectedAddress = ""
-        locationMessage = nil
+        searchText = text
+        searchActionMessage = nil
         searchTask?.cancel()
+
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedText.count >= 2 else {
+            isSearching = false
+            searchService.clearSuggestions()
+            return
+        }
+
+        searchService.clearSuggestions()
+        isSearching = true
         searchTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
@@ -202,29 +216,54 @@ final class AddFarmViewModel {
         searchService.updateRegion(region)
     }
 
-    func clearLocation() {
-        lookupToken = UUID()
-        reverseTask?.cancel()
-        locationQuery = ""
-        selectedPlace = nil
-        selectedCoordinate = nil
-        selectedAddress = ""
-        locationMessage = nil
+    func clearSearch() {
+        searchTask?.cancel()
+        placeSearchTask?.cancel()
+        searchText = ""
+        isSearching = false
+        searchActionMessage = nil
         searchService.clearSuggestions()
     }
 
+    func clearSelectedLocation() {
+        lookupToken = UUID()
+        reverseTask?.cancel()
+        placeSearchTask?.cancel()
+        isReverseGeocoding = false
+        selectedPlace = nil
+        selectedCoordinate = nil
+        selectedLocationName = ""
+        selectedAddress = ""
+        locationMessage = nil
+    }
+
+    func updateSelectedLocationName(_ text: String) {
+        selectedLocationName = text
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3 {
+            locationMessage = nil
+            validationMessage = nil
+        }
+    }
+
     func selectSuggestion(_ completion: MKLocalSearchCompletion) {
+        placeSearchTask?.cancel()
         lookupToken = UUID()
         let token = lookupToken
-        Task { [weak self] in
+        reverseTask?.cancel()
+        isReverseGeocoding = false
+        searchActionMessage = nil
+        validationMessage = nil
+        placeSearchTask = Task { [weak self] in
             guard let self else { return }
             do {
                 let result = try await searchService.select(completion)
-                guard token == lookupToken else { return }
+                guard !Task.isCancelled, token == lookupToken else { return }
                 applyPlace(result)
+            } catch is CancellationError {
+                return
             } catch {
                 guard token == lookupToken else { return }
-                locationMessage = "Saran lokasi belum bisa dipilih. Coba ketik manual atau pilih titik di peta."
+                searchActionMessage = "Lokasi ini belum bisa dipilih. Coba hasil lain atau pilih titik di peta."
             }
         }
     }
@@ -232,15 +271,24 @@ final class AddFarmViewModel {
     func selectCoordinate(_ coordinate: Coordinate) {
         lookupToken = UUID()
         let token = lookupToken
+        searchTask?.cancel()
+        placeSearchTask?.cancel()
+        searchText = ""
+        searchService.clearSuggestions()
         selectedCoordinate = coordinate
-        locationQuery = ""
+        selectedLocationName = ""
         selectedPlace = nil
         selectedAddress = ""
+        currentLocationActionMessage = nil
         locationMessage = "Mencari nama lokasi..."
-        cameraPosition = .region(MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude),
-            span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
-        ))
+        validationMessage = nil
+        isReverseGeocoding = true
+        withAnimation(.easeInOut(duration: 0.35)) {
+            cameraPosition = .region(MKCoordinateRegion(
+                center: CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude),
+                span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+            ))
+        }
 
         reverseTask?.cancel()
         reverseTask = Task { [weak self] in
@@ -251,6 +299,7 @@ final class AddFarmViewModel {
     func useCurrentLocation() {
         guard !isRequestingCurrentLocation else { return }
 
+        currentLocationActionMessage = nil
         isRequestingCurrentLocation = true
         Task { [weak self] in
             guard let self else { return }
@@ -259,7 +308,7 @@ final class AddFarmViewModel {
                 let coordinate = try await locationManager.requestCurrentLocation()
                 selectCoordinate(Coordinate(latitude: coordinate.latitude, longitude: coordinate.longitude))
             } catch {
-                locationMessage = "Lokasi belum bisa dideteksi. Pilih titik lahan secara manual di peta."
+                currentLocationActionMessage = "Lokasi belum bisa dideteksi. Pilih titik lahan secara manual di peta."
             }
         }
     }
@@ -271,32 +320,34 @@ final class AddFarmViewModel {
         }
 
         isSaving = true
-        try? await Task.sleep(for: .milliseconds(450))
-        guard !Task.isCancelled else {
-            isSaving = false
-            return
-        }
+        defer { isSaving = false }
 
-        savedFarm = farmStore.addFarm(
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            crop: finalCrop,
-            location: finalLocationName,
-            coordinate: selectedCoordinate
-        )
-        isSaving = false
-        isSuccess = true
-        HapticManager.success()
+        do {
+            savedFarm = try await farmStore.addFarm(
+                name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                crop: finalCrop,
+                location: finalLocationName,
+                coordinate: selectedCoordinate
+            )
+            isSuccess = true
+            HapticManager.success()
+        } catch {
+            validationMessage = (error as? APIError)?.userMessage ?? "Lahan gagal disimpan ke server."
+        }
     }
 
     private func resolveCoordinate(_ coordinate: Coordinate, token: UUID) async {
-        isReverseGeocoding = true
-        defer { isReverseGeocoding = false }
         do {
             let result = try await placeResolver.resolve(coordinate: coordinate)
-            guard token == lookupToken else { return }
+            guard !Task.isCancelled, token == lookupToken else { return }
+            isReverseGeocoding = false
             applyPlace(result)
+        } catch is CancellationError {
+            guard token == lookupToken else { return }
+            isReverseGeocoding = false
         } catch {
             guard token == lookupToken else { return }
+            isReverseGeocoding = false
             selectedCoordinate = coordinate
             locationMessage = "Nama lokasi belum ditemukan. Isi nama lokasi secara manual."
         }
@@ -306,12 +357,16 @@ final class AddFarmViewModel {
         selectedPlace = result
         selectedCoordinate = result.coordinate
         selectedAddress = result.formattedAddress
-        locationQuery = result.displayName
+        selectedLocationName = result.displayName
+        searchText = ""
         locationMessage = nil
+        validationMessage = nil
         searchService.clearSuggestions()
-        cameraPosition = .region(MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: result.coordinate.latitude, longitude: result.coordinate.longitude),
-            span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
-        ))
+        withAnimation(.easeInOut(duration: 0.35)) {
+            cameraPosition = .region(MKCoordinateRegion(
+                center: CLLocationCoordinate2D(latitude: result.coordinate.latitude, longitude: result.coordinate.longitude),
+                span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
+            ))
+        }
     }
 }

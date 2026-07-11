@@ -12,19 +12,37 @@ final class AuthSession {
 
     init(tokenStore: KeychainTokenStore) {
         self.tokenStore = tokenStore
-        if let user = tokenStore.cachedUser(), tokenStore.access() != nil {
-            currentUser = user
+    }
+
+    func restore(using auth: AuthService) async {
+        guard isRestoring else { return }
+        defer { isRestoring = false }
+
+        guard tokenStore.access() != nil || tokenStore.refresh() != nil else { return }
+        do {
+            currentUser = try await auth.me()
+        } catch APIError.unauthenticated {
+            tokenStore.clear()
+            currentUser = nil
+        } catch let APIError.server(serverError)
+            where serverError.code == APIErrorCode.invalidRefreshToken {
+            tokenStore.clear()
+            currentUser = nil
+        } catch {
+            currentUser = nil
         }
-        isRestoring = false
     }
 
     func didAuthenticate(_ token: AuthToken) {
         tokenStore.setAccess(token.accessToken)
         tokenStore.setRefresh(token.refreshToken)
         if let user = token.user {
-            tokenStore.setCachedUser(user)
             currentUser = user
         }
+    }
+
+    func updateCurrentUser(_ user: UserOut) {
+        currentUser = user
     }
 
     func logout() {

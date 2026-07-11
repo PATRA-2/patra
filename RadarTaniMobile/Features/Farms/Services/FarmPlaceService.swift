@@ -62,6 +62,7 @@ final class FarmPlaceSearchService: NSObject, ObservableObject {
     func updateQuery(_ query: String) {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         errorMessage = nil
+        suggestions = []
 
         guard trimmedQuery.count >= 2 else {
             clearSuggestions()
@@ -80,6 +81,7 @@ final class FarmPlaceSearchService: NSObject, ObservableObject {
         completer.queryFragment = ""
         suggestions = []
         isSearching = false
+        errorMessage = nil
     }
 
     func select(_ completion: MKLocalSearchCompletion) async throws -> FarmPlaceResult {

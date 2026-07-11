@@ -135,6 +135,22 @@ class DiagnosisOut(APIModel):
     created_at: datetime
 
 
+class PlantChatDiagnosisIn(APIModel):
+    prediction: str = Field(min_length=3, max_length=500)
+    confidence: int = Field(ge=0, le=100)
+    symptoms: str = Field(min_length=1, max_length=4_000)
+    recommendation: str = Field(min_length=1, max_length=4_000)
+
+
+class PlantChatIn(APIModel):
+    message: str = Field(min_length=1, max_length=1_000)
+    diagnosis: PlantChatDiagnosisIn
+
+
+class PlantChatOut(APIModel):
+    reply: str
+
+
 class PlantReportOut(APIModel):
     id: UUID
     title: str

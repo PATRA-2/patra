@@ -1,6 +1,6 @@
 # Integration Smoke Test Checklist
 
-Pre-req: backend demo jalan, simulator iPhone 17, Debug build (`#if DEBUG`).
+Pre-req: backend jalan dan simulator iPhone tersedia.
 
 ## Backend start
 ```bash
@@ -23,13 +23,13 @@ xcodebuild -scheme RadarTaniMobile -destination 'platform=iOS Simulator,name=iPh
 - [ ] `BUILD SUCCEEDED`
 
 ## Flow (urut, di Simulator)
-1. [ ] **Register petani baru** (tab belum auth → LoginView → "Daftar sebagai Petani") → isi form → submit → MainTabView muncul (AuthSession.token persisted di Keychain).
+1. [ ] **Register petani baru** (tab belum auth → LoginView → "Daftar sebagai Petani") → isi form → submit → MainTabView muncul (hanya access/refresh token disimpan aman di Keychain; profil selalu dimuat dari `GET /me`).
 2. [ ] **Tambah Farm** (tab Lahan → "Tambah Lahan") → isi nama/tanaman/lokasi → Simpan → farm muncul di list (reload dari `GET /farms`).
-3. [ ] **Upload laporan PlantScan** (tab Lapor → Ambil Foto → galeri/simulator) → form CreatePlantReport → Kirim → loading 5-10s (sync AI demo) → PlantDiagnosisResultView muncul dengan diagnosis + foto via RTDAsyncImage (`/media/...`).
-4. [ ] **Radar Feed** (tab Radar) → list `FeedReportOut` muncul + foto AsyncImage load + filter chip kategori dari loaded items.
-5. [ ] **Peta** (tab Peta) → annotations MapKit muncul (MapReportOut) di sekitar region Yogyakarta.
-6. [ ] **Notifikasi** (Profile → tidak ada menu, atau via tab) → list (mungkin kosong sampai admin verify) — tap → markRead.
-7. [ ] **Pesan Pestisida** (Profile → "Pesanan Pestisida") → OrderListView → tombol + → form → Kirim → pesanan muncul di list.
+3. [ ] **Analisis dan laporan PlantScan** (tab Lapor → Ambil Foto → pilih kategori/judul/deskripsi) → `POST /plant-diagnoses` → hasil backend tampil → Tanya AI memakai `POST /plant-ai/chat` → konfirmasi Kirim Laporan memakai `POST /plant-reports`.
+4. [ ] **Radar Feed** (tab Radar) → list `FeedReportOut` muncul + foto AsyncImage load + ganti kategori mengirim query `category` ke backend.
+5. [ ] **Peta** (tab Peta) → annotations MapKit muncul; perubahan region mengirim batas min/max latitude/longitude ke backend.
+6. [ ] **Notifikasi** (Profile → Notifikasi) → filter belum dibaca mengirim `unread_only`; tap card → markRead; tombol semua dibaca → markAllRead.
+7. [ ] **Pesan Pestisida** (Profile → "Pesanan Pestisida") → tombol + → pilih laporan terkait opsional → Kirim → pesanan muncul di list.
 8. [ ] **Logout** (Profile → Logout) → kembali LoginView; reopen app → session cleared (harus login lagi).
 
 ## Manual verify (admin flow opsional via Swagger)
@@ -41,14 +41,14 @@ xcodebuild -scheme RadarTaniMobile -destination 'platform=iOS Simulator,name=iPh
 - [ ] Airplane mode → View menampilkan error "Tidak ada koneksi internet" dari `APIError.network`.
 
 ## Catatan integrasi
-- Base URL Debug: `http://127.0.0.1:8000/api/v1` (AppConstants `#if DEBUG`).
+- Base URL app: `https://patra-api.kamil.my.id/api/v1` (`AppConstants.AppConfig.apiBaseURL`).
 - ATS: `NSAllowsLocalNetworking = YES` (Info.plist generated via build setting).
-- Token: Keychain (`com.hendrairawan.dev.RadarTaniMobile` service, keys `access_token`/`refresh_token`/`cached_user`).
+- Token: Keychain (`com.hendrairawan.dev.RadarTaniMobile` service, keys `access_token`/`refresh_token`). Data profil tidak di-cache lokal.
 - 401 refresh: single-flight di `APIClient.refreshOnce()` (rotasi refresh token).
 - Multipart: `MultipartFormDataBuilder.appendFile` untuk plant-reports + plant-diagnoses.
 - Category: String raw verbatim dari backend (bukan enum Swift).
 - Image: `RTDAsyncImage` (SwiftUI.AsyncImage native, zero dep).
-- Devices/FCM: skip (in-app notifikasi only).
+- Devices/FCM: tidak diaktifkan karena Firebase iOS belum memiliki konfigurasi valid; notifikasi in-app tetap memakai backend `GET/PATCH /notifications`.
 
 ## Verifikasi kontrak decode (sanity)
 - [ ] Login response `AuthToken` (access_token/refresh_token/token_type/expires_in/user) ter-decode.
