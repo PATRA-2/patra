@@ -22,11 +22,10 @@ final class AddFarmViewModel {
     }
 
     func detectCurrentLocation() {
-        locationManager.requestLocation { [weak self] coord in
-            Task { @MainActor in
-                self?.coordinate = Coordinate(latitude: coord.latitude, longitude: coord.longitude)
-                self?.detectedLocationName = String(format: "%.4f, %.4f", coord.latitude, coord.longitude)
-            }
+        locationManager.checkAuthorization()
+        locationManager.requestOneShot { [weak self] coord in
+            self?.coordinate = Coordinate(latitude: coord.latitude, longitude: coord.longitude)
+            self?.detectedLocationName = String(format: "%.4f, %.4f", coord.latitude, coord.longitude)
         }
     }
 
