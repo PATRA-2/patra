@@ -6,6 +6,7 @@ final class AppEnvironment {
     let apiClient: APIClient
     let auth: AuthService
     let farms: FarmService
+    let farmStore: FarmStore
     let reports: ReportService
     let feed: RadarFeedService
     let notifications: NotificationService
@@ -20,6 +21,7 @@ final class AppEnvironment {
         self.apiClient = client
         self.auth = AuthService(client: client)
         self.farms = FarmService(client: client)
+        self.farmStore = FarmStore()
         self.reports = ReportService(client: client)
         self.feed = RadarFeedService(client: client)
         self.notifications = NotificationService(client: client)

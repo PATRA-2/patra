@@ -27,16 +27,19 @@ final class PlantScanViewModel {
 
     private let imageSelectionService = ImageSelectionService()
     private let reportService: ReportService
-    private let farmService: FarmService
+    private let farmStore: FarmStore
 
-    init(env: AppEnvironment) {
+    init(env: AppEnvironment, farmStore: FarmStore) {
         self.reportService = env.reports
-        self.farmService = env.farms
+        self.farmStore = farmStore
     }
 
     func loadActiveFarm() async {
-        let page = try? await farmService.farms(page: 1, pageSize: 100)
-        activeFarm = page?.items.first { $0.isActive } ?? page?.items.first
+        activeFarm = farmStore.activeFarm
+    }
+
+    func refreshActiveFarm() {
+        activeFarm = farmStore.activeFarm
     }
 
     func submitReport(title: String, category: String, description: String?,

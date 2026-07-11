@@ -1,23 +1,26 @@
-import Foundation
 import Observation
 
 @MainActor
 @Observable
 final class FarmListViewModel {
-    private(set) var farms: [FarmOut] = []
-    private(set) var isLoading = false
-    private(set) var errorMessage: String?
-    private let farmService: FarmService
-    init(env: AppEnvironment) { self.farmService = env.farms }
+    private let farmStore: FarmStore
 
-    func load() async {
-        isLoading = true; defer { isLoading = false }
-        do { farms = try await farmService.farms().items } catch {
-            errorMessage = (error as? APIError)?.userMessage ?? "Gagal memuat lahan."
-        }
+    init(farmStore: FarmStore) {
+        self.farmStore = farmStore
     }
-    func delete(_ id: UUID) async throws {
-        try await farmService.delete(id)
-        await load()
+
+    var farms: [Farm] { farmStore.farms }
+    var activeFarm: Farm? { farmStore.activeFarm }
+
+    func setActive(_ farm: Farm) {
+        farmStore.setActiveFarm(id: farm.id)
+        HapticManager.selection()
+    }
+
+    @discardableResult
+    func delete(_ farm: Farm) -> Farm? {
+        let deleted = farmStore.deleteFarm(id: farm.id)
+        if deleted != nil { HapticManager.selection() }
+        return deleted
     }
 }
