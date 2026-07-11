@@ -2,11 +2,28 @@ import Foundation
 import SwiftUI
 
 struct Farm: Identifiable, Hashable {
-    let id = UUID()
-    let name: String
-    let crop: String
-    let location: String
-    let isActive: Bool
+    let id: UUID
+    var name: String
+    var crop: String
+    var location: String
+    var coordinate: Coordinate?
+    var isActive: Bool
+
+    init(
+        id: UUID = UUID(),
+        name: String,
+        crop: String,
+        location: String,
+        coordinate: Coordinate? = nil,
+        isActive: Bool
+    ) {
+        self.id = id
+        self.name = name
+        self.crop = crop
+        self.location = location
+        self.coordinate = coordinate
+        self.isActive = isActive
+    }
 }
 
 struct RadarReport: Identifiable, Hashable {

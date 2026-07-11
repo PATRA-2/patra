@@ -10,7 +10,11 @@ final class ReportHistoryStore {
         self.reports = reports ?? Self.sampleReports
     }
 
-    func submit(draft: PlantReportDraft, farmName: String = "Sawah Utara") {
+    func submit(
+        draft: PlantReportDraft,
+        farmName: String = "Sawah Utara",
+        status: String = "Menunggu verifikasi"
+    ) {
         let title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let summary = draft.description.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -19,7 +23,7 @@ final class ReportHistoryStore {
                 title: title,
                 category: draft.category.rawValue,
                 summary: summary.isEmpty ? "Laporan dikirim dari hasil foto tanaman." : summary,
-                status: "Terkirim",
+                status: status,
                 farmName: farmName
             ),
             at: 0

@@ -257,6 +257,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kamera digunakan untuk mengambil foto tanaman sebagai laporan.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Lokasi digunakan untuk menempatkan pin lahan dan menghitung jarak laporan di sekitar petani.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Akses galeri digunakan untuk menyimpan foto tanaman dari kamera.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Akses galeri digunakan untuk memilih foto tanaman dari perangkat.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -292,6 +293,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kamera digunakan untuk mengambil foto tanaman sebagai laporan.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Lokasi digunakan untuk menempatkan pin lahan dan menghitung jarak laporan di sekitar petani.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Akses galeri digunakan untuk menyimpan foto tanaman dari kamera.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Akses galeri digunakan untuk memilih foto tanaman dari perangkat.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
