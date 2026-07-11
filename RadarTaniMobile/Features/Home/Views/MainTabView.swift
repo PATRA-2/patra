@@ -15,12 +15,15 @@ extension MainTab {
 }
 
 struct MainTabView: View {
+    @Environment(PlantAnalysisStore.self) private var plantAnalysisStore
+
     let userEmail: String
     let reportHistoryStore: ReportHistoryStore
     let onLogout: () -> Void
 
     @State private var selectedTab: MainTab = .home
     @State private var isShowingProfileSheet = false
+    @State private var plantScanPath: [PlantScanRoute] = []
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -46,15 +49,18 @@ struct MainTabView: View {
             .tag(MainTab.home)
 
             NavigationStack {
-                FarmListView()
+                FarmListView(selectedTab: $selectedTab)
             }
             .tabItem {
                 Label("Lahan", systemImage: "leaf.fill")
             }
             .tag(MainTab.farms)
 
-            NavigationStack {
-                PlantScanView(reportHistoryStore: reportHistoryStore)
+            NavigationStack(path: $plantScanPath) {
+                PlantScanView(selectedTab: $selectedTab, path: $plantScanPath)
+                    .navigationDestination(for: PlantScanRoute.self) { route in
+                        plantScanDestination(for: route)
+                    }
             }
             .tabItem {
                 Label("Lapor", systemImage: "camera.fill")
@@ -78,15 +84,53 @@ struct MainTabView: View {
             .tag(MainTab.map)
         }
         .tint(RTDColor.deepGreen)
-        .sheet(isPresented: $isShowingProfileSheet) {
+        .fullScreenCover(isPresented: $isShowingProfileSheet) {
             NavigationStack {
                 ProfileView(userEmail: userEmail, reportHistoryStore: reportHistoryStore) {
                     isShowingProfileSheet = false
                     onLogout()
                 }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            isShowingProfileSheet = false
+                        } label: {
+                            Image(systemName: "xmark")
+                        }
+                        .accessibilityLabel("Tutup Profil")
+                    }
+                }
             }
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
+        }
+    }
+
+    @ViewBuilder
+    private func plantScanDestination(for route: PlantScanRoute) -> some View {
+        switch route {
+        case .compose:
+            if let image = plantAnalysisStore.pendingImage {
+                CreatePlantReportView(image: image, path: $plantScanPath)
+            } else {
+                ContentUnavailableView(
+                    "Foto tidak tersedia",
+                    systemImage: "photo.badge.exclamationmark",
+                    description: Text("Kembali ke Lapor dan pilih foto tanaman lagi.")
+                )
+            }
+        case .processing(let taskID):
+            PlantAnalysisProcessingView(taskID: taskID, path: $plantScanPath)
+        case .tasks:
+            PlantAnalysisTaskListView(path: $plantScanPath)
+        case .result(let taskID):
+            PlantDiagnosisResultView(
+                taskID: taskID,
+                reportHistoryStore: reportHistoryStore,
+                path: $plantScanPath
+            )
+        case .chat(let taskID):
+            PlantAIChatView(taskID: taskID)
+        case .success(let taskID):
+            PlantReportSuccessView(taskID: taskID, path: $plantScanPath)
         }
     }
 }

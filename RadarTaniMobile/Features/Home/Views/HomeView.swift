@@ -41,36 +41,36 @@ struct HomeView: View {
                     HomeMetricCard(title: "Radius Feed", value: viewModel.feedRadius, systemImage: "location.fill", color: RTDColor.infoBlue)
                 }
 
-                VStack(alignment: .leading, spacing: 14) {
-                    SectionHeader(title: "Aksi Cepat", subtitle: "Alur utama sesuai kebutuhan petani")
-
-                    HomeActionRow(
-                        title: "Lapor gejala tanaman",
-                        subtitle: "Ambil foto, kirim ke AI, lalu bagikan hasil ke Radar Feed.",
-                        systemImage: "camera.macro",
-                        color: RTDColor.primaryGreen
-                    ) {
-                        selectedTab = .report
-                    }
-
-                    HomeActionRow(
-                        title: "Cek Radar Feed",
-                        subtitle: "Lihat laporan hama, bibit, dan kerja tani di sekitar lahan.",
-                        systemImage: "dot.radiowaves.left.and.right",
-                        color: RTDColor.infoBlue
-                    ) {
-                        selectedTab = .radarFeed
-                    }
-
-                    HomeActionRow(
-                        title: "Kelola lahan",
-                        subtitle: "Pastikan lahan aktif benar untuk radius laporan dan notifikasi.",
-                        systemImage: "map.fill",
-                        color: RTDColor.leafGreen
-                    ) {
-                        selectedTab = .farms
-                    }
-                }
+//                VStack(alignment: .leading, spacing: 14) {
+//                    SectionHeader(title: "Aksi Cepat", subtitle: "Alur utama sesuai kebutuhan petani")
+//
+//                    HomeActionRow(
+//                        title: "Lapor gejala tanaman",
+//                        subtitle: "Ambil foto, kirim ke AI, lalu bagikan hasil ke Radar Feed.",
+//                        systemImage: "camera.macro",
+//                        color: RTDColor.primaryGreen
+//                    ) {
+//                        selectedTab = .report
+//                    }
+//
+//                    HomeActionRow(
+//                        title: "Cek Radar Feed",
+//                        subtitle: "Lihat laporan hama, bibit, dan kerja tani di sekitar lahan.",
+//                        systemImage: "dot.radiowaves.left.and.right",
+//                        color: RTDColor.infoBlue
+//                    ) {
+//                        selectedTab = .radarFeed
+//                    }
+//
+//                    HomeActionRow(
+//                        title: "Kelola lahan",
+//                        subtitle: "Pastikan lahan aktif benar untuk radius laporan dan notifikasi.",
+//                        systemImage: "map.fill",
+//                        color: RTDColor.leafGreen
+//                    ) {
+//                        selectedTab = .farms
+//                    }
+//                }
 
                 VStack(alignment: .leading, spacing: 14) {
                     SectionHeader(title: "Laporan Terbaru", subtitle: "Ringkasan sekitar \(viewModel.activeFarm.name)")
@@ -176,5 +176,19 @@ private struct HomeReportCard: View {
         }
         .padding(18)
         .rtdCard()
+    }
+}
+
+#Preview("Home") {
+    NavigationStack {
+        HomeViewPreviewContainer()
+    }
+}
+
+private struct HomeViewPreviewContainer: View {
+    @State private var selectedTab: HomeTab = .home
+
+    var body: some View {
+        HomeView(selectedTab: $selectedTab)
     }
 }

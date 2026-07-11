@@ -8,4 +8,8 @@ enum HapticManager {
     static func selection() {
         UISelectionFeedbackGenerator().selectionChanged()
     }
+
+    static func warning() {
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+    }
 }

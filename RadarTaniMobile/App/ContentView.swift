@@ -4,6 +4,8 @@ struct ContentView: View {
     @State private var isAuthenticated = false
     @State private var userEmail = ""
     @State private var reportHistoryStore = ReportHistoryStore()
+    @State private var plantAnalysisStore = PlantAnalysisStore()
+    @State private var farmStore = FarmStore()
 
     var body: some View {
         Group {
@@ -12,6 +14,8 @@ struct ContentView: View {
                     isAuthenticated = false
                     userEmail = ""
                 }
+                .environment(plantAnalysisStore)
+                .environment(farmStore)
             } else {
                 NavigationStack {
                     LoginView { email in
