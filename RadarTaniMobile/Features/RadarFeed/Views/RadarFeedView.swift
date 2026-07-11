@@ -31,7 +31,12 @@ struct RadarFeedView: View {
 
                 LazyVStack(spacing: 16) {
                     ForEach(viewModel?.filteredReports ?? []) { report in
-                        RadarReportCard(report: report)
+                        NavigationLink {
+                            ReportDetailView(reportId: report.id)
+                        } label: {
+                            RadarReportCard(report: report)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
 
