@@ -1,1 +1,4 @@
-RTD_API_BASE_URL = https://api.radar-tani.local
+// Dev (Debug build): http://127.0.0.1:8000/api/v1
+// Release build:       https://api.radar-tani.id/api/v1
+// Switch ada di AppConstants.AppConfig.apiBaseURL (#if DEBUG), bukan xcconfig.
+RTD_API_BASE_URL = http://127.0.0.1:8000/api/v1

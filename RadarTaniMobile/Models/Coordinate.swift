@@ -1,4 +1,4 @@
-struct Coordinate: Hashable, Codable, Sendable {
+nonisolated struct Coordinate: Hashable, Codable, Sendable {
     var latitude: Double
     var longitude: Double
 }

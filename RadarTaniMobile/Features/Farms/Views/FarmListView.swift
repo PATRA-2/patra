@@ -1,103 +1,119 @@
 import SwiftUI
 
 struct FarmListView: View {
-    @Environment(FarmStore.self) private var farmStore
-    @Binding var selectedTab: MainTab
-    @State private var farmPendingDeletion: Farm?
+    @Environment(AppEnvironment.self) private var env
+    @State private var viewModel: FarmListViewModel?
+    @State private var showAddFarm = false
+    @State private var deleteConfirmation: DeleteConfirmation?
+    @State private var showForceDeleteAlert = false
+    @State private var pendingForceDelete: FarmOut?
+
+    struct DeleteConfirmation: Identifiable {
+        let id = UUID()
+        let farm: FarmOut
+    }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                SectionHeader(title: "Lahan Saya", subtitle: "Kelola lahan aktif untuk radius laporan sekitar")
-
-                if farmStore.farms.isEmpty {
-                    RTDEmptyStateView(
-                        title: "Belum ada lahan",
-                        message: "Tambahkan lahan agar lokasi laporan dan peringatan sekitar dapat ditentukan.",
-                        systemImage: "leaf.circle.fill"
-                    )
-                    .frame(maxWidth: .infinity)
-                    .rtdCard()
-                } else {
-                    ForEach(farmStore.farms) { farm in
-                        FarmCard(farm: farm) {
-                            farmPendingDeletion = farm
+        List {
+            if let viewModel {
+                ForEach(viewModel.farms) { farm in
+                    NavigationLink {
+                        FarmDetailView(farm: farm)
+                    } label: {
+                        FarmCard(farm: farm)
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button("Hapus", role: .destructive) {
+                            deleteConfirmation = DeleteConfirmation(farm: farm)
                         }
                     }
                 }
 
-                NavigationLink {
-                    AddFarmView(selectedTab: $selectedTab)
-                } label: {
-                    Label("Tambah Lahan", systemImage: "plus")
+                if let message = viewModel.errorMessage, viewModel.farms.isEmpty {
+                    RTDErrorView(message: message)
                 }
-                .buttonStyle(PrimaryButtonStyle())
-                .padding(.top, 4)
             }
-            .padding(20)
         }
+        .listStyle(.plain)
         .background(RTDColor.background)
         .navigationTitle("Lahan")
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog(
-            "Hapus lahan?",
-            isPresented: deleteConfirmationBinding,
-            titleVisibility: .visible,
-            presenting: farmPendingDeletion
-        ) { farm in
-            Button("Hapus Lahan", role: .destructive) {
-                delete(farm)
-            }
-            Button("Batal", role: .cancel) {
-                farmPendingDeletion = nil
-            }
-        } message: { farm in
-            Text(deletionMessage(for: farm))
-        }
-    }
-
-    private var deleteConfirmationBinding: Binding<Bool> {
-        Binding(
-            get: { farmPendingDeletion != nil },
-            set: { isPresented in
-                if !isPresented {
-                    farmPendingDeletion = nil
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showAddFarm = true } label: {
+                    Image(systemName: "plus").font(.title3)
                 }
             }
-        )
-    }
-
-    private func deletionMessage(for farm: Farm) -> String {
-        if farmStore.farms.count == 1 {
-            return "\(farm.name) adalah satu-satunya lahan. Setelah dihapus, Anda perlu menambahkan lahan sebelum membuat laporan baru. Laporan lama tidak ikut terhapus."
         }
-
-        if farm.isActive {
-            return "\(farm.name) sedang aktif. Setelah dihapus, lahan berikutnya akan otomatis dijadikan aktif. Laporan lama tidak ikut terhapus."
+        .refreshable { await viewModel?.load() }
+        .task {
+            if viewModel == nil { viewModel = env.makeFarmListVM() }
+            await viewModel?.load()
         }
-
-        return "\(farm.name) akan dihapus dari daftar lahan. Laporan lama tidak ikut terhapus."
+        .sheet(isPresented: $showAddFarm) {
+            NavigationStack { AddFarmView() }
+                .onDisappear { Task { await viewModel?.load() } }
+        }
+        .alert("Hapus Lahan?", isPresented: .init(
+            get: { deleteConfirmation != nil },
+            set: { if !$0 { deleteConfirmation = nil } }
+        )) {
+            if let farm = deleteConfirmation?.farm {
+                Button("Hapus", role: .destructive) {
+                    Task { await delete(farm) }
+                }
+                Button("Batal", role: .cancel) {
+                    deleteConfirmation = nil
+                }
+            }
+        } message: {
+            if let farm = deleteConfirmation?.farm {
+                Text("Lahan '\(farm.name)' akan dihapus dari daftar Anda.")
+            }
+        }
+        .alert("Laporan Juga Ikut Terhapus", isPresented: $showForceDeleteAlert) {
+            if let farm = pendingForceDelete {
+                Button("Hapus Semua", role: .destructive) {
+                    Task { await forceDelete(farm) }
+                }
+                Button("Batal", role: .cancel) {
+                    pendingForceDelete = nil
+                }
+            }
+        } message: {
+            if let farm = pendingForceDelete {
+                Text("Lahan '\(farm.name)' masih memiliki laporan. Semua laporan di lahan ini juga akan dihapus. Lanjutkan?")
+            }
+        }
     }
 
-    private func delete(_ farm: Farm) {
-        guard farmStore.deleteFarm(id: farm.id) != nil else { return }
-        farmPendingDeletion = nil
-        HapticManager.warning()
+    private func delete(_ farm: FarmOut) async {
+        deleteConfirmation = nil
+        do {
+            try await env.farms.delete(farm.id)
+            await viewModel?.load()
+        } catch let error as APIError {
+            if case .server(let s) = error, s.code == "FARM_IN_USE" {
+                pendingForceDelete = farm
+                showForceDeleteAlert = true
+            }
+        } catch {
+            // ignore — error untuk force delete akan di-handle di konfirmasi
+        }
     }
-}
 
-#Preview {
-    @Previewable @State var selectedTab: MainTab = .farms
-
-    NavigationStack {
-        FarmListView(selectedTab: $selectedTab)
-            .environment(FarmStore())
+    private func forceDelete(_ farm: FarmOut) async {
+        pendingForceDelete = nil
+        do {
+            try await env.apiClient.requestVoid(APIRoute.farmDelete(farm.id, force: true))
+            await viewModel?.load()
+        } catch {
+        }
     }
 }
 
 private struct FarmCard: View {
-    let farm: Farm
-    let onDelete: () -> Void
+    let farm: FarmOut
 
     var body: some View {
         HStack(spacing: 14) {
@@ -118,20 +134,14 @@ private struct FarmCard: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(farm.isActive ? RTDColor.safeGreen : RTDColor.textSecondary)
             }
-            Spacer(minLength: 8)
-
-            Button(role: .destructive, action: onDelete) {
-                Image(systemName: "trash")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(RTDColor.warningRed)
-                    .frame(width: 44, height: 44)
-                    .background(RTDColor.warningRed.opacity(0.08), in: Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Hapus \(farm.name)")
-            .accessibilityHint("Membuka konfirmasi hapus lahan")
+            Spacer()
         }
-        .padding(18)
-        .rtdCard()
+        .padding(.vertical, 4)
+    }
+}
+
+extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }

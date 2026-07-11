@@ -1,101 +1,136 @@
 import CoreLocation
 import Observation
 
+extension Notification.Name {
+    static let locationAuthorized = Notification.Name("locationAuthorized")
+}
+
 @MainActor
 @Observable
-final class LocationManager {
-    private(set) var authorizationStatus: CLAuthorizationStatus
-    private(set) var coordinate: Coordinate?
-    private(set) var isLocating = false
-    private(set) var errorMessage: String?
+final class LocationManager: NSObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    private(set) var authorizationStatus: CLAuthorizationStatus = .notDetermined
+    private(set) var currentLocation: CLLocationCoordinate2D?
+    private(set) var isUpdating = false
+    private var locationContinuation: CheckedContinuation<CLLocationCoordinate2D, Error>?
+    private var singleCompletion: ((CLLocationCoordinate2D) -> Void)?
 
-    @ObservationIgnored private let manager: CLLocationManager
-    @ObservationIgnored private var serviceSession: CLServiceSession?
-    @ObservationIgnored private var locationTask: Task<Void, Never>?
-
-    init() {
-        let manager = CLLocationManager()
-        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
-        self.manager = manager
-        self.authorizationStatus = manager.authorizationStatus
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.distanceFilter = 10
     }
 
-    var isAuthorizationDenied: Bool {
+    var isAuthorized: Bool {
+        authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways
+    }
+
+    var isDenied: Bool {
         authorizationStatus == .denied || authorizationStatus == .restricted
+    }
+
+    func checkAuthorization() {
+        let status = manager.authorizationStatus
+        authorizationStatus = status
+        if status == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+        } else if status == .authorizedWhenInUse || status == .authorizedAlways {
+            startUpdating()
+        }
     }
 
     func requestPermission() {
         manager.requestWhenInUseAuthorization()
-        authorizationStatus = manager.authorizationStatus
     }
 
-    func requestCurrentLocation() {
-        stopLocationRequest()
-        authorizationStatus = manager.authorizationStatus
-        errorMessage = nil
-
-        guard CLLocationManager.locationServicesEnabled() else {
-            errorMessage = "Layanan lokasi sedang nonaktif. Pilih pin lahan secara manual."
-            return
+    func requestSingleLocation() async throws -> CLLocationCoordinate2D {
+        let status = manager.authorizationStatus
+        if status == .denied || status == .restricted {
+            throw LocationError.denied
         }
-
-        guard !isAuthorizationDenied else {
-            errorMessage = "Izin lokasi belum tersedia. Anda tetap dapat memilih pin secara manual."
-            return
+        if status == .notDetermined {
+            manager.requestWhenInUseAuthorization()
         }
-
-        isLocating = true
-        manager.requestWhenInUseAuthorization()
-        serviceSession = CLServiceSession(authorization: .whenInUse)
-
-        locationTask = Task { [weak self] in
-            guard let self else { return }
-
-            do {
-                for try await update in CLLocationUpdate.liveUpdates() {
-                    if Task.isCancelled { return }
-
-                    authorizationStatus = manager.authorizationStatus
-
-                    if update.authorizationDenied || update.authorizationDeniedGlobally {
-                        errorMessage = "Izin lokasi ditolak. Pilih pin manual atau aktifkan izin melalui Pengaturan."
-                        stopLocationRequest()
-                        return
-                    }
-
-                    if update.locationUnavailable {
-                        continue
-                    }
-
-                    guard let location = update.location,
-                          location.horizontalAccuracy >= 0,
-                          location.horizontalAccuracy <= 250,
-                          abs(location.timestamp.timeIntervalSinceNow) <= 60 else {
-                        continue
-                    }
-
-                    coordinate = Coordinate(
-                        latitude: location.coordinate.latitude,
-                        longitude: location.coordinate.longitude
-                    )
-                    errorMessage = nil
-                    stopLocationRequest()
-                    return
+        return try await withCheckedThrowingContinuation { continuation in
+            self.locationContinuation = continuation
+            if manager.authorizationStatus == .authorizedWhenInUse || manager.authorizationStatus == .authorizedAlways {
+                if let loc = manager.location {
+                    continuation.resume(returning: loc.coordinate)
+                    self.locationContinuation = nil
+                } else {
+                    manager.requestLocation()
                 }
-            } catch is CancellationError {
-                return
-            } catch {
-                errorMessage = "Lokasi belum dapat ditemukan. Coba lagi atau pilih pin secara manual."
-                stopLocationRequest()
             }
         }
     }
 
-    func stopLocationRequest() {
-        locationTask?.cancel()
-        locationTask = nil
-        serviceSession = nil
-        isLocating = false
-        authorizationStatus = manager.authorizationStatus
+    func requestOneShot(completion: @escaping (CLLocationCoordinate2D) -> Void) {
+        singleCompletion = completion
+        let status = manager.authorizationStatus
+        if status == .authorizedWhenInUse || status == .authorizedAlways {
+            if let loc = manager.location {
+                completion(loc.coordinate)
+                singleCompletion = nil
+            } else {
+                manager.requestLocation()
+            }
+        } else if status == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+        }
+    }
+
+    func startUpdating() {
+        isUpdating = true
+        manager.startUpdatingLocation()
+    }
+
+    func stopUpdating() {
+        isUpdating = false
+        manager.stopUpdatingLocation()
+    }
+
+    // MARK: - CLLocationManagerDelegate
+
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        Task { @MainActor in
+            self.authorizationStatus = status
+            if status == .authorizedWhenInUse || status == .authorizedAlways {
+                manager.requestLocation()
+            }
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let loc = locations.last else { return }
+        let coord = loc.coordinate
+        Task { @MainActor in
+            self.currentLocation = coord
+            self.locationContinuation?.resume(returning: coord)
+            self.locationContinuation = nil
+            self.singleCompletion?(coord)
+            self.singleCompletion = nil
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        Task { @MainActor in
+            self.locationContinuation?.resume(throwing: error)
+            self.locationContinuation = nil
+            self.singleCompletion = nil
+        }
+    }
+}
+
+enum LocationError: LocalizedError {
+    case denied
+    case unavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .denied: return "Akses lokasi ditolak. Buka Pengaturan untuk mengizinkan."
+        case .unavailable: return "Lokasi tidak tersedia saat ini."
+        }
     }
 }

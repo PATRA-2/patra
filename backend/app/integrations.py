@@ -247,8 +247,9 @@ def create_services(settings: Settings) -> ServiceContainer:
             ai=GeminiAI(settings),
             notifier=FirebaseNotifier(settings),
         )
+    ai = GeminiAI(settings) if settings.gemini_api_key else DemoAI(settings)
     return ServiceContainer(
         storage=LocalStorage(settings),
-        ai=DemoAI(settings),
+        ai=ai,
         notifier=DemoNotifier(),
     )

@@ -1,16 +1,16 @@
 import SwiftUI
 
 struct ReportMapAnnotation: View {
-    let report: RadarMapReport
+    let report: MapReportOut
     let isSelected: Bool
 
     var body: some View {
         VStack(spacing: 4) {
-            Image(systemName: report.category.icon)
+            Image(systemName: report.categoryIcon)
                 .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(report.category == .seed ? RTDColor.textPrimary : .white)
+                .foregroundStyle(report.category == "Bibit" ? RTDColor.textPrimary : .white)
                 .frame(width: isSelected ? 42 : 34, height: isSelected ? 42 : 34)
-                .background(report.category.color, in: Circle())
+                .background(report.categoryColor, in: Circle())
                 .overlay {
                     Circle().stroke(.white, lineWidth: 3)
                 }
@@ -18,7 +18,7 @@ struct ReportMapAnnotation: View {
 
             Image(systemName: "triangle.fill")
                 .font(.system(size: 9))
-                .foregroundStyle(report.category.color)
+                .foregroundStyle(report.categoryColor)
                 .rotationEffect(.degrees(180))
                 .offset(y: -7)
         }

@@ -1,15 +1,16 @@
 import Foundation
 
-struct User: Identifiable, Hashable, Codable, Sendable {
+nonisolated struct UserOut: Identifiable, Hashable, Codable, Sendable {
     let id: UUID
-    var name: String
-    var email: String
-    var cooperativeName: String?
+    let name: String
+    let email: String
+    let cooperativeName: String?
 
-    init(id: UUID = UUID(), name: String, email: String, cooperativeName: String? = nil) {
-        self.id = id
-        self.name = name
-        self.email = email
-        self.cooperativeName = cooperativeName
+    enum CodingKeys: String, CodingKey {
+        case id, name, email
+        case cooperativeName = "cooperative_name"
     }
 }
+
+// Backwards-compat alias supaya referensi lama tetap compile.
+typealias User = UserOut

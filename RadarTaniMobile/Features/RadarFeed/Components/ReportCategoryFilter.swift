@@ -1,9 +1,10 @@
 import SwiftUI
 
 struct ReportCategoryFilter: View {
-    @Binding var selectedCategory: RadarReport.Category?
+    @Binding var selectedCategory: String?
 
-    let reports: [RadarReport]
+    let reports: [FeedReportOut]
+    let categories: [String]
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -18,12 +19,12 @@ struct ReportCategoryFilter: View {
                     selectedCategory = nil
                 }
 
-                ForEach(RadarReport.Category.allCases, id: \.self) { category in
+                ForEach(categories, id: \.self) { category in
                     FilterChip(
-                        title: category.rawValue,
+                        title: category,
                         count: count(for: category),
-                        systemImage: category.icon,
-                        color: category.color,
+                        systemImage: chipIcon(category),
+                        color: chipColor(category),
                         isSelected: selectedCategory == category
                     ) {
                         selectedCategory = category
@@ -36,9 +37,29 @@ struct ReportCategoryFilter: View {
         .padding(.horizontal, -20)
     }
 
-    private func count(for category: RadarReport.Category?) -> Int {
+    private func count(for category: String?) -> Int {
         guard let category else { return reports.count }
         return reports.filter { $0.category == category }.count
+    }
+
+    private func chipColor(_ category: String) -> Color {
+        switch category {
+        case "Hama": RTDColor.warningRed
+        case "Penyakit": RTDColor.warningOrange
+        case "Bibit": RTDColor.primaryGreen
+        case "Kerja Tani": RTDColor.infoBlue
+        default: RTDColor.infoBlue
+        }
+    }
+
+    private func chipIcon(_ category: String) -> String {
+        switch category {
+        case "Hama": "exclamationmark.triangle.fill"
+        case "Penyakit": "leaf.fill"
+        case "Bibit": "leaf.fill"
+        case "Kerja Tani": "person.2.fill"
+        default: "mappin.circle.fill"
+        }
     }
 }
 

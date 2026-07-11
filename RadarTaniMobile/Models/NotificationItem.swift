@@ -1,15 +1,19 @@
 import Foundation
 
-struct NotificationItem: Identifiable, Hashable, Codable, Sendable {
+nonisolated struct NotificationOut: Identifiable, Hashable, Codable, Sendable {
     let id: UUID
-    var title: String
-    var message: String
-    var relatedReportID: UUID?
+    let title: String
+    let message: String
+    let relatedReportId: UUID?
+    let isRead: Bool
+    let createdAt: Date
 
-    init(id: UUID = UUID(), title: String, message: String, relatedReportID: UUID? = nil) {
-        self.id = id
-        self.title = title
-        self.message = message
-        self.relatedReportID = relatedReportID
+    enum CodingKeys: String, CodingKey {
+        case id, title, message
+        case relatedReportId = "related_report_id"
+        case isRead = "is_read"
+        case createdAt = "created_at"
     }
 }
+
+typealias NotificationItem = NotificationOut

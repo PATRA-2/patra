@@ -1,11 +1,11 @@
 import SwiftUI
 
 struct ProfileView: View {
-    let userEmail: String
-    let reportHistoryStore: ReportHistoryStore
     let onLogout: () -> Void
-
-    @State private var viewModel = ProfileViewModel()
+    @Environment(AppEnvironment.self) private var env
+    @State private var viewModel: ProfileViewModel?
+    @State private var ordersVM: OrderListViewModel?
+    @State private var showOrders = false
 
     var body: some View {
         ScrollView {
@@ -18,13 +18,13 @@ struct ProfileView: View {
                             .font(.system(size: 54))
                             .foregroundStyle(RTDColor.deepGreen)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(viewModel.name)
+                            Text(viewModel?.name ?? "Petani")
                                 .font(.headline)
                                 .foregroundStyle(RTDColor.textPrimary)
-                            Text(userEmail)
+                            Text(viewModel?.email ?? "")
                                 .font(.callout)
                                 .foregroundStyle(RTDColor.textSecondary)
-                            Text(viewModel.cooperative)
+                            Text(viewModel?.cooperative ?? "Koperasi")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(RTDColor.leafGreen)
                         }
@@ -34,20 +34,26 @@ struct ProfileView: View {
                 .rtdCard()
 
                 VStack(spacing: 0) {
-                    Toggle("Notifikasi", isOn: $viewModel.notificationsEnabled)
+                    Toggle("Notifikasi", isOn: Binding(
+                        get: { viewModel?.notificationsEnabled ?? true },
+                        set: { viewModel?.notificationsEnabled = $0 }))
                     Divider().padding(.vertical, 12)
                     NavigationLink {
-                        ReportHistoryView(reportHistoryStore: reportHistoryStore)
+                        ReportHistoryView()
                     } label: {
                         HStack {
                             Label("History Laporan", systemImage: "clock.arrow.circlepath")
                             Spacer()
-                            Text("\(reportHistoryStore.reports.count)")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(RTDColor.deepGreen)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(RTDColor.softGreen, in: Capsule())
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    Divider().padding(.vertical, 12)
+                    Button {
+                        showOrders = true
+                    } label: {
+                        HStack {
+                            Label("Pesanan Pestisida", systemImage: "cart.fill")
+                            Spacer()
                         }
                     }
                     .buttonStyle(.plain)
@@ -69,5 +75,14 @@ struct ProfileView: View {
         .background(RTDColor.background)
         .navigationTitle("Profil")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            if viewModel == nil { viewModel = env.makeProfileVM() }
+            if ordersVM == nil { ordersVM = env.makeOrderListVM() }
+        }
+        .sheet(isPresented: $showOrders) {
+            NavigationStack {
+                OrderListView(viewModel: ordersVM ?? env.makeOrderListVM())
+            }
+        }
     }
 }

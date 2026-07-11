@@ -1,48 +1,37 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var isAuthenticated = false
-    @State private var userEmail = ""
-    @State private var reportHistoryStore = ReportHistoryStore()
-    @State private var plantAnalysisStore = PlantAnalysisStore()
-    @State private var farmStore = FarmStore()
+    @Environment(AppEnvironment.self) private var env
 
     var body: some View {
         Group {
-            if isAuthenticated {
-                MainTabView(userEmail: userEmail, reportHistoryStore: reportHistoryStore) {
-                    isAuthenticated = false
-                    userEmail = ""
-                }
-                .environment(plantAnalysisStore)
-                .environment(farmStore)
+            if env.session.isRestoring {
+                RTDLoadingView()
+            } else if env.session.isAuthenticated {
+                MainTabView(onLogout: { Task { await logout() } })
             } else {
                 NavigationStack {
-                    LoginView { email in
-                        authenticate(email: email)
-                    }
-                    .navigationDestination(for: AuthRoute.self) { route in
-                        switch route {
-                        case .registerFarmer:
-                            RegisterView { email in
-                                authenticate(email: email)
+                    LoginView()
+                        .navigationDestination(for: AuthRoute.self) { route in
+                            switch route {
+                            case .registerFarmer:
+                                RegisterView()
                             }
                         }
-                    }
                 }
             }
         }
-        .animation(.snappy(duration: 0.28), value: isAuthenticated)
+        .animation(.snappy(duration: 0.28), value: env.session.isAuthenticated)
     }
 
-    private func authenticate(email: String) {
-        userEmail = email
-        isAuthenticated = true
+    private func logout() async {
+        try? await env.auth.logout()
+        env.session.logout()
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView().environment(AppEnvironment())
 }
 
 enum AuthRoute: Hashable {

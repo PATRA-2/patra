@@ -2,12 +2,14 @@ import SwiftUI
 
 struct HomeView: View {
     @Binding var selectedTab: HomeTab
-    @State private var viewModel = HomeViewModel()
+    @Environment(AppEnvironment.self) private var env
+    @State private var viewModel: HomeViewModel?
+    @State private var activeFarmName: String = "Lahan Anda"
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                FarmSelectorPill(farmName: viewModel.activeFarm.name, crop: viewModel.activeFarm.crop)
+                FarmSelectorPill(farmName: activeFarmName, crop: "")
 
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Beranda")
@@ -37,45 +39,14 @@ struct HomeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
 
                 HStack(spacing: 12) {
-                    HomeMetricCard(title: "Lahan", value: "\(viewModel.farmCount)", systemImage: "map.fill", color: RTDColor.leafGreen)
-                    HomeMetricCard(title: "Radius Feed", value: viewModel.feedRadius, systemImage: "location.fill", color: RTDColor.infoBlue)
+                    HomeMetricCard(title: "Lahan", value: "\(viewModel?.farmCount ?? 0)", systemImage: "map.fill", color: RTDColor.leafGreen)
+                    HomeMetricCard(title: "Radius Feed", value: viewModel?.feedRadius ?? "5 km", systemImage: "location.fill", color: RTDColor.infoBlue)
                 }
 
-//                VStack(alignment: .leading, spacing: 14) {
-//                    SectionHeader(title: "Aksi Cepat", subtitle: "Alur utama sesuai kebutuhan petani")
-//
-//                    HomeActionRow(
-//                        title: "Lapor gejala tanaman",
-//                        subtitle: "Ambil foto, kirim ke AI, lalu bagikan hasil ke Radar Feed.",
-//                        systemImage: "camera.macro",
-//                        color: RTDColor.primaryGreen
-//                    ) {
-//                        selectedTab = .report
-//                    }
-//
-//                    HomeActionRow(
-//                        title: "Cek Radar Feed",
-//                        subtitle: "Lihat laporan hama, bibit, dan kerja tani di sekitar lahan.",
-//                        systemImage: "dot.radiowaves.left.and.right",
-//                        color: RTDColor.infoBlue
-//                    ) {
-//                        selectedTab = .radarFeed
-//                    }
-//
-//                    HomeActionRow(
-//                        title: "Kelola lahan",
-//                        subtitle: "Pastikan lahan aktif benar untuk radius laporan dan notifikasi.",
-//                        systemImage: "map.fill",
-//                        color: RTDColor.leafGreen
-//                    ) {
-//                        selectedTab = .farms
-//                    }
-//                }
-
                 VStack(alignment: .leading, spacing: 14) {
-                    SectionHeader(title: "Laporan Terbaru", subtitle: "Ringkasan sekitar \(viewModel.activeFarm.name)")
+                    SectionHeader(title: "Laporan Terbaru", subtitle: "Ringkasan sekitar \(activeFarmName)")
 
-                    ForEach(viewModel.latestReports) { report in
+                    ForEach(viewModel?.recentReports ?? []) { report in
                         HomeReportCard(report: report)
                     }
                 }
@@ -85,6 +56,17 @@ struct HomeView: View {
         .background(RTDColor.background)
         .navigationTitle("Beranda")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            if viewModel == nil { viewModel = env.makeHomeVM() }
+            await viewModel?.load()
+            await loadActiveFarmName()
+        }
+    }
+
+    private func loadActiveFarmName() async {
+        if let page = try? await env.farms.farms(page: 1, pageSize: 100) {
+            activeFarmName = page.items.first { $0.isActive }?.name ?? page.items.first?.name ?? "Lahan Anda"
+        }
     }
 }
 
@@ -115,52 +97,13 @@ private struct HomeMetricCard: View {
     }
 }
 
-private struct HomeActionRow: View {
-    let title: String
-    let subtitle: String
-    let systemImage: String
-    let color: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: systemImage)
-                    .font(.title3)
-                    .foregroundStyle(color)
-                    .frame(width: 44, height: 44)
-                    .background(color.opacity(0.12), in: Circle())
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(title)
-                        .font(.headline)
-                        .foregroundStyle(RTDColor.textPrimary)
-                    Text(subtitle)
-                        .font(.callout)
-                        .foregroundStyle(RTDColor.textSecondary)
-                        .multilineTextAlignment(.leading)
-                }
-
-                Spacer(minLength: 8)
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(RTDColor.textSecondary)
-            }
-            .padding(18)
-            .rtdCard()
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 private struct HomeReportCard: View {
-    let report: RadarReport
+    let report: FeedReportOut
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                CategoryChip(title: report.category.rawValue, systemImage: report.category.icon, color: report.category.color, isSelected: false)
+                CategoryChip(title: report.category, systemImage: report.categoryIcon, color: report.categoryColor, isSelected: false)
                 Spacer()
                 Text(report.distance)
                     .font(.caption.weight(.semibold))
@@ -176,19 +119,5 @@ private struct HomeReportCard: View {
         }
         .padding(18)
         .rtdCard()
-    }
-}
-
-#Preview("Home") {
-    NavigationStack {
-        HomeViewPreviewContainer()
-    }
-}
-
-private struct HomeViewPreviewContainer: View {
-    @State private var selectedTab: HomeTab = .home
-
-    var body: some View {
-        HomeView(selectedTab: $selectedTab)
     }
 }

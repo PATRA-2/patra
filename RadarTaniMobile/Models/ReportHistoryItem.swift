@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-struct ReportHistoryItem: Identifiable, Hashable {
+nonisolated struct ReportHistoryItem: Identifiable, Hashable {
     let id: UUID
     let title: String
     let category: String
@@ -10,15 +10,8 @@ struct ReportHistoryItem: Identifiable, Hashable {
     let farmName: String
     let submittedAt: Date
 
-    init(
-        id: UUID = UUID(),
-        title: String,
-        category: String,
-        summary: String,
-        status: String,
-        farmName: String,
-        submittedAt: Date = .now
-    ) {
+    init(id: UUID = UUID(), title: String, category: String, summary: String,
+         status: String, farmName: String, submittedAt: Date = .now) {
         self.id = id
         self.title = title
         self.category = category
@@ -28,18 +21,25 @@ struct ReportHistoryItem: Identifiable, Hashable {
         self.submittedAt = submittedAt
     }
 
+    init(from report: PlantReportOut) {
+        self.id = report.id
+        self.title = report.title
+        self.category = report.category
+        self.summary = report.summary
+        self.status = report.status
+        self.farmName = report.farmName
+        self.submittedAt = report.createdAt
+    }
+
     var submittedDateText: String {
         DateFormatter.rtdShortDate.string(from: submittedAt)
     }
 
     var categoryColor: Color {
         switch category {
-        case PlantReportCategory.pest.rawValue:
-            RTDColor.warningRed
-        case PlantReportCategory.disease.rawValue:
-            RTDColor.warningOrange
-        default:
-            RTDColor.infoBlue
+        case "Hama": RTDColor.warningRed
+        case "Penyakit": RTDColor.warningOrange
+        default: RTDColor.infoBlue
         }
     }
 }

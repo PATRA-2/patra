@@ -2,7 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Response, status
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, update, delete
 
 from app.dependencies import CurrentUser, DBSession
 from app.errors import AppError
@@ -93,13 +93,18 @@ async def delete_farm(
     farm_id: UUID,
     user: CurrentUser,
     session: DBSession,
+    force: bool = Query(False),
 ) -> Response:
     farm = await find_owned_farm(session, farm_id, user.id)
     referenced = await session.scalar(
         select(func.count()).select_from(PlantReport).where(PlantReport.farm_id == farm.id)
     )
-    if referenced:
+    if referenced and not force:
         raise AppError(409, "FARM_IN_USE", "Lahan masih digunakan oleh laporan.")
+    if force:
+        await session.execute(
+            delete(PlantReport).where(PlantReport.farm_id == farm.id)
+        )
     await session.delete(farm)
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

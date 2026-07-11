@@ -1,18 +1,20 @@
 import SwiftUI
 
 struct RadarFeedView: View {
-    @State private var viewModel = RadarFeedViewModel()
+    @Environment(AppEnvironment.self) private var env
+    @State private var viewModel: RadarFeedViewModel?
+    @State private var activeFarmName: String = "Lahan Anda"
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 RadarFeedSummaryCard(
-                    farmName: viewModel.activeFarmName,
-                    radius: viewModel.feedRadius,
-                    totalReports: viewModel.reports.count
+                    farmName: activeFarmName,
+                    radius: viewModel?.feedRadius ?? "10 km",
+                    totalReports: viewModel?.reports.count ?? 0
                 )
 
-                RadiusInfoBanner(radius: viewModel.feedRadius, farmName: viewModel.activeFarmName)
+                RadiusInfoBanner(radius: viewModel?.feedRadius ?? "10 km", farmName: activeFarmName)
 
                 VStack(alignment: .leading, spacing: 12) {
                     SectionHeader(
@@ -20,39 +22,41 @@ struct RadarFeedView: View {
                         subtitle: "Kategori sesuai PRD: hama, bibit, dan kerja tani"
                     )
 
-                    ReportCategoryFilter(selectedCategory: selectedCategoryBinding, reports: viewModel.reports)
+                    ReportCategoryFilter(
+                        selectedCategory: selectedCategoryBinding,
+                        reports: viewModel?.reports ?? [],
+                        categories: viewModel?.availableCategories ?? []
+                    )
                 }
 
                 LazyVStack(spacing: 16) {
-                    ForEach(viewModel.filteredReports) { report in
-                        RadarReportCard(report: report)
+                    ForEach(viewModel?.filteredReports ?? []) { report in
+                        NavigationLink {
+                            ReportDetailView(reportId: report.id)
+                        } label: {
+                            RadarReportCard(report: report)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
 
-                if viewModel.filteredReports.isEmpty {
-                    EmptyRadarFeedState(categoryTitle: viewModel.selectedCategoryTitle)
+                if (viewModel?.filteredReports.isEmpty ?? true) {
+                    EmptyRadarFeedState(categoryTitle: viewModel?.selectedCategoryTitle ?? "Semua Laporan")
                 }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
         }
-        .refreshable {
-            await viewModel.refresh()
-        }
+        .refreshable { await viewModel?.refresh() }
         .background(RTDColor.background.ignoresSafeArea())
         .navigationTitle("Radar Feed")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button("Semua Laporan") {
-                        viewModel.selectedCategory = nil
-                    }
-
-                    ForEach(RadarReport.Category.allCases, id: \.self) { category in
-                        Button(category.rawValue) {
-                            viewModel.selectedCategory = category
-                        }
+                    Button("Semua Laporan") { viewModel?.selectedCategory = nil }
+                    ForEach(viewModel?.availableCategories ?? [], id: \.self) { category in
+                        Button(category) { viewModel?.selectedCategory = category }
                     }
                 } label: {
                     Image(systemName: "line.3.horizontal.decrease.circle")
@@ -62,13 +66,24 @@ struct RadarFeedView: View {
                 .accessibilityLabel("Pilih kategori Radar Feed")
             }
         }
+        .task {
+            if viewModel == nil { viewModel = env.makeRadarFeedVM() }
+            await viewModel?.load()
+            await loadActiveFarmName()
+        }
     }
 
-    private var selectedCategoryBinding: Binding<RadarReport.Category?> {
+    private var selectedCategoryBinding: Binding<String?> {
         Binding(
-            get: { viewModel.selectedCategory },
-            set: { viewModel.selectedCategory = $0 }
+            get: { viewModel?.selectedCategory },
+            set: { viewModel?.selectedCategory = $0 }
         )
+    }
+
+    private func loadActiveFarmName() async {
+        if let page = try? await env.farms.farms(page: 1, pageSize: 100) {
+            activeFarmName = page.items.first { $0.isActive }?.name ?? page.items.first?.name ?? "Lahan Anda"
+        }
     }
 }
 
@@ -160,7 +175,7 @@ private struct RadiusInfoBanner: View {
                     .font(.footnote.weight(.bold))
                     .foregroundStyle(RTDColor.textPrimary)
 
-                Text("Feed menampilkan laporan dalam radius \(radius). Backend nantinya menghitung radius dengan lokasi lahan dan PostGIS.")
+                Text("Feed menampilkan laporan dalam radius \(radius). Backend menghitung radius dari lokasi lahan aktif Anda.")
                     .font(.caption)
                     .foregroundStyle(RTDColor.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -179,20 +194,17 @@ private struct RadiusInfoBanner: View {
 }
 
 private struct RadarReportCard: View {
-    let report: RadarReport
+    let report: FeedReportOut
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-//                CategoryIcon(category: report.category)
-
                 VStack(alignment: .leading, spacing: 5) {
-                    CategoryChip(title: report.category.rawValue, systemImage: report.category.icon, color: report.category.color, isSelected: false)
+                    CategoryChip(title: report.category, systemImage: report.categoryIcon, color: report.categoryColor, isSelected: false)
 
                     Text(report.title)
                         .font(.headline)
                         .foregroundStyle(RTDColor.textPrimary)
-//                        .lineLimit(1)
                         .truncationMode(.tail)
                 }
 
@@ -205,6 +217,10 @@ private struct RadarReportCard: View {
                 .font(.callout)
                 .foregroundStyle(RTDColor.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            RTDAsyncImage(url: report.imageUrl)
+                .frame(height: 180)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
             Divider()
                 .overlay(RTDColor.borderSoft)
@@ -220,7 +236,7 @@ private struct RadarReportCard: View {
 
                 Spacer(minLength: 8)
 
-                Text(report.timeAgo)
+                Text(report.createdAt, format: .relative(presentation: .named))
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(RTDColor.textSecondary)
                     .lineLimit(1)
@@ -238,25 +254,10 @@ private struct RadarReportCard: View {
 
     private var statusColor: Color {
         switch report.status {
-        case "Terverifikasi":
-            RTDColor.safeGreen
-        case "Aktif":
-            RTDColor.infoBlue
-        default:
-            RTDColor.warningOrange
+        case "Terverifikasi": RTDColor.safeGreen
+        case "Aktif": RTDColor.infoBlue
+        default: RTDColor.warningOrange
         }
-    }
-}
-
-private struct CategoryIcon: View {
-    let category: RadarReport.Category
-
-    var body: some View {
-        Image(systemName: category.icon)
-            .font(.headline.weight(.bold))
-            .foregroundStyle(category.color)
-            .frame(width: 42, height: 42)
-            .background(category.color.opacity(0.12), in: Circle())
     }
 }
 
@@ -288,4 +289,5 @@ private struct EmptyRadarFeedState: View {
     NavigationStack {
         RadarFeedView()
     }
+    .environment(AppEnvironment())
 }

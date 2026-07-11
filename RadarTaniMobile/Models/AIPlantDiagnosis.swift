@@ -1,17 +1,17 @@
 import Foundation
 
-struct AIPlantDiagnosis: Identifiable, Hashable, Codable, Sendable {
+nonisolated struct DiagnosisOut: Identifiable, Hashable, Codable, Sendable {
     let id: UUID
-    var prediction: String
-    var confidence: Int
-    var symptoms: String
-    var recommendation: String
+    let prediction: String
+    let confidence: Int
+    let symptoms: String
+    let recommendation: String
+    let createdAt: Date
 
-    init(id: UUID = UUID(), prediction: String, confidence: Int, symptoms: String, recommendation: String) {
-        self.id = id
-        self.prediction = prediction
-        self.confidence = confidence
-        self.symptoms = symptoms
-        self.recommendation = recommendation
+    enum CodingKeys: String, CodingKey {
+        case id, prediction, confidence, symptoms, recommendation
+        case createdAt = "created_at"
     }
 }
+
+typealias AIPlantDiagnosis = DiagnosisOut
