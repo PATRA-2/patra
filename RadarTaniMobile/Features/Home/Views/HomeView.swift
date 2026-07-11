@@ -44,37 +44,6 @@ struct HomeView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 14) {
-                    SectionHeader(title: "Aksi Cepat", subtitle: "Alur utama sesuai kebutuhan petani")
-
-                    HomeActionRow(
-                        title: "Lapor gejala tanaman",
-                        subtitle: "Ambil foto, kirim ke AI, lalu bagikan hasil ke Radar Feed.",
-                        systemImage: "camera.macro",
-                        color: RTDColor.primaryGreen
-                    ) {
-                        selectedTab = .report
-                    }
-
-                    HomeActionRow(
-                        title: "Cek Radar Feed",
-                        subtitle: "Lihat laporan hama, bibit, dan kerja tani di sekitar lahan.",
-                        systemImage: "dot.radiowaves.left.and.right",
-                        color: RTDColor.infoBlue
-                    ) {
-                        selectedTab = .radarFeed
-                    }
-
-                    HomeActionRow(
-                        title: "Kelola lahan",
-                        subtitle: "Pastikan lahan aktif benar untuk radius laporan dan notifikasi.",
-                        systemImage: "map.fill",
-                        color: RTDColor.leafGreen
-                    ) {
-                        selectedTab = .farms
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 14) {
                     SectionHeader(title: "Laporan Terbaru", subtitle: "Ringkasan sekitar \(activeFarmName)")
 
                     ForEach(viewModel?.recentReports ?? []) { report in
@@ -125,45 +94,6 @@ private struct HomeMetricCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .rtdCard()
-    }
-}
-
-private struct HomeActionRow: View {
-    let title: String
-    let subtitle: String
-    let systemImage: String
-    let color: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: systemImage)
-                    .font(.title3)
-                    .foregroundStyle(color)
-                    .frame(width: 44, height: 44)
-                    .background(color.opacity(0.12), in: Circle())
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(title)
-                        .font(.headline)
-                        .foregroundStyle(RTDColor.textPrimary)
-                    Text(subtitle)
-                        .font(.callout)
-                        .foregroundStyle(RTDColor.textSecondary)
-                        .multilineTextAlignment(.leading)
-                }
-
-                Spacer(minLength: 8)
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(RTDColor.textSecondary)
-            }
-            .padding(18)
-            .rtdCard()
-        }
-        .buttonStyle(.plain)
     }
 }
 

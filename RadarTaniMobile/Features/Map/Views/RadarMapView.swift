@@ -6,6 +6,7 @@ struct RadarMapView: View {
     @State private var viewModel: RadarMapViewModel?
     @State private var position: MapCameraPosition = .automatic
     @State private var selectedReportID: MapReportOut.ID?
+    @State private var locationManager = LocationManager()
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -60,6 +61,26 @@ struct RadarMapView: View {
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
             }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            Button {
+                locationManager.checkAuthorization()
+                locationManager.requestOneShot { coord in
+                    withAnimation {
+                        position = .region(MKCoordinateRegion(
+                            center: coord,
+                            span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)))
+                    }
+                }
+            } label: {
+                Image(systemName: "location.circle.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(RTDColor.deepGreen)
+                    .background(Circle().fill(.regularMaterial).frame(width: 48, height: 48))
+                    .shadow(radius: 4)
+            }
+            .padding(.trailing, 20)
+            .padding(.bottom, 100)
         }
         .background(RTDColor.background)
         .navigationTitle("Peta")
