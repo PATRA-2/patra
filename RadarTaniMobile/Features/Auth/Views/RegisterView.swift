@@ -1,10 +1,9 @@
 import SwiftUI
 
 struct RegisterView: View {
-    let onRegister: (String) -> Void
-
+    @Environment(AppEnvironment.self) private var env
     @Environment(\.dismiss) private var dismiss
-    @State private var viewModel = RegisterViewModel()
+    @State private var viewModel: RegisterViewModel?
     @FocusState private var focusedField: Field?
 
     var body: some View {
@@ -24,6 +23,7 @@ struct RegisterView: View {
         }
         .navigationTitle("Daftar sebagai Petani")
         .navigationBarTitleDisplayMode(.inline)
+        .task { if viewModel == nil { viewModel = env.makeRegisterVM() } }
     }
 
     private var header: some View {
@@ -48,28 +48,28 @@ struct RegisterView: View {
 
     private var formCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            registerField("Nama lengkap", icon: "person.fill", text: $viewModel.name, prompt: "Nama petani", field: .name)
+            registerField("Nama lengkap", icon: "person.fill", text: textBinding(\.name), prompt: "Nama petani", field: .name)
                 .textContentType(.name)
                 .submitLabel(.next)
 
-            registerField("Email", icon: "envelope.fill", text: $viewModel.email, prompt: "nama@email.com", field: .email)
+            registerField("Email", icon: "envelope.fill", text: textBinding(\.email), prompt: "nama@email.com", field: .email)
                 .keyboardType(.emailAddress)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.next)
 
-            registerField("Nama kelompok tani", icon: "person.3.fill", text: $viewModel.cooperativeName, prompt: "Contoh: Koperasi Desa Sukamaju", field: .cooperative)
+            registerField("Nama kelompok tani", icon: "person.3.fill", text: textBinding(\.cooperativeName), prompt: "Contoh: Koperasi Desa Sukamaju", field: .cooperative)
                 .submitLabel(.next)
 
-            registerField("Lokasi lahan utama", icon: "mappin.and.ellipse", text: $viewModel.farmLocation, prompt: "Desa atau kecamatan", field: .farmLocation)
+            registerField("Lokasi lahan utama", icon: "mappin.and.ellipse", text: textBinding(\.farmLocation), prompt: "Desa atau kecamatan", field: .farmLocation)
                 .submitLabel(.next)
 
-            registerField("Password", icon: "lock.fill", text: $viewModel.password, prompt: "Minimal 6 karakter", field: .password, isSecure: true)
+            registerField("Password", icon: "lock.fill", text: textBinding(\.password), prompt: "Minimal 6 karakter", field: .password, isSecure: true)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.go)
 
-            if let errorMessage = viewModel.errorMessage {
+            if let errorMessage = viewModel?.errorMessage {
                 Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(RTDColor.warningRed)
@@ -77,12 +77,12 @@ struct RegisterView: View {
 
             Button { submitRegistration() } label: {
                 HStack(spacing: 10) {
-                    if viewModel.isLoading { ProgressView().tint(RTDColor.textPrimary) }
-                    Text(viewModel.isLoading ? "Membuat akun..." : "Buat Akun Petani")
+                    if viewModel?.isLoading == true { ProgressView().tint(RTDColor.textPrimary) }
+                    Text(viewModel?.isLoading == true ? "Membuat akun..." : "Buat Akun Petani")
                 }
             }
             .buttonStyle(PrimaryButtonStyle())
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel?.isLoading == true)
 
             Button("Sudah punya akun? Masuk") {
                 dismiss()
@@ -91,7 +91,7 @@ struct RegisterView: View {
             .foregroundStyle(RTDColor.deepGreen)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel?.isLoading == true)
         }
         .padding(20)
         .rtdCard(radius: 28)
@@ -103,6 +103,13 @@ struct RegisterView: View {
             .foregroundStyle(RTDColor.textSecondary)
             .labelStyle(.titleAndIcon)
             .padding(.horizontal, 16)
+    }
+
+    private func textBinding(_ keyPath: WritableKeyPath<RegisterViewModel, String>) -> Binding<String> {
+        Binding(
+            get: { viewModel?[keyPath: keyPath] ?? "" },
+            set: { viewModel?[keyPath: keyPath] = $0 }
+        )
     }
 
     private func registerField(_ title: String, icon: String, text: Binding<String>, prompt: String, field: Field, isSecure: Bool = false) -> some View {
@@ -152,11 +159,7 @@ struct RegisterView: View {
 
     private func submitRegistration() {
         focusedField = nil
-        Task {
-            if let email = await viewModel.register() {
-                onRegister(email)
-            }
-        }
+        Task { if let viewModel { _ = await viewModel.register() } }
     }
 
     private enum Field {
@@ -165,11 +168,5 @@ struct RegisterView: View {
         case cooperative
         case farmLocation
         case password
-    }
-}
-
-#Preview {
-    NavigationStack {
-        RegisterView { _ in }
     }
 }

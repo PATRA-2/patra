@@ -256,6 +256,7 @@
 				DEVELOPMENT_TEAM = K39QVFTK2A;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kamera digunakan untuk mengambil foto tanaman sebagai laporan.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Akses galeri digunakan untuk menyimpan foto tanaman dari kamera.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Akses galeri digunakan untuk memilih foto tanaman dari perangkat.";
@@ -291,6 +292,7 @@
 				DEVELOPMENT_TEAM = K39QVFTK2A;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kamera digunakan untuk mengambil foto tanaman sebagai laporan.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Akses galeri digunakan untuk menyimpan foto tanaman dari kamera.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Akses galeri digunakan untuk memilih foto tanaman dari perangkat.";

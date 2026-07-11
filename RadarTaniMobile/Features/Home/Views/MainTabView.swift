@@ -15,8 +15,6 @@ extension MainTab {
 }
 
 struct MainTabView: View {
-    let userEmail: String
-    let reportHistoryStore: ReportHistoryStore
     let onLogout: () -> Void
 
     @State private var selectedTab: MainTab = .home
@@ -54,7 +52,7 @@ struct MainTabView: View {
             .tag(MainTab.farms)
 
             NavigationStack {
-                PlantScanView(reportHistoryStore: reportHistoryStore)
+                PlantScanView()
             }
             .tabItem {
                 Label("Lapor", systemImage: "camera.fill")
@@ -80,10 +78,10 @@ struct MainTabView: View {
         .tint(RTDColor.deepGreen)
         .sheet(isPresented: $isShowingProfileSheet) {
             NavigationStack {
-                ProfileView(userEmail: userEmail, reportHistoryStore: reportHistoryStore) {
+                ProfileView(onLogout: {
                     isShowingProfileSheet = false
                     onLogout()
-                }
+                })
             }
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)

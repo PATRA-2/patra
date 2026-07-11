@@ -1,11 +1,24 @@
+import Foundation
 import Observation
 
 @MainActor
 @Observable
 final class FarmListViewModel {
-    let farms: [Farm] = [
-        Farm(name: "Sawah Utara", crop: "Padi", location: "Desa Sukamaju", isActive: true),
-        Farm(name: "Kebun Barat", crop: "Cabai", location: "Dusun Karang", isActive: false),
-        Farm(name: "Lahan Jagung", crop: "Jagung", location: "Blok Citarik", isActive: false)
-    ]
+    private(set) var farms: [FarmOut] = []
+    private(set) var isLoading = false
+    private(set) var errorMessage: String?
+    private let farmService: FarmService
+    init(env: AppEnvironment) { self.farmService = env.farms }
+
+    func load() async {
+        isLoading = true; defer { isLoading = false }
+        do { farms = try await farmService.farms().items } catch {
+            errorMessage = (error as? APIError)?.userMessage ?? "Gagal memuat lahan."
+        }
+    }
+    func delete(_ id: UUID) async {
+        do { try await farmService.delete(id); await load() } catch {
+            errorMessage = (error as? APIError)?.userMessage ?? "Gagal menghapus lahan."
+        }
+    }
 }

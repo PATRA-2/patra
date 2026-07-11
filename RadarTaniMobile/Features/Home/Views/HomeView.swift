@@ -2,12 +2,14 @@ import SwiftUI
 
 struct HomeView: View {
     @Binding var selectedTab: HomeTab
-    @State private var viewModel = HomeViewModel()
+    @Environment(AppEnvironment.self) private var env
+    @State private var viewModel: HomeViewModel?
+    @State private var activeFarmName: String = "Lahan Anda"
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                FarmSelectorPill(farmName: viewModel.activeFarm.name, crop: viewModel.activeFarm.crop)
+                FarmSelectorPill(farmName: activeFarmName, crop: "")
 
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Beranda")
@@ -37,8 +39,8 @@ struct HomeView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
 
                 HStack(spacing: 12) {
-                    HomeMetricCard(title: "Lahan", value: "\(viewModel.farmCount)", systemImage: "map.fill", color: RTDColor.leafGreen)
-                    HomeMetricCard(title: "Radius Feed", value: viewModel.feedRadius, systemImage: "location.fill", color: RTDColor.infoBlue)
+                    HomeMetricCard(title: "Lahan", value: "\(viewModel?.farmCount ?? 0)", systemImage: "map.fill", color: RTDColor.leafGreen)
+                    HomeMetricCard(title: "Radius Feed", value: viewModel?.feedRadius ?? "5 km", systemImage: "location.fill", color: RTDColor.infoBlue)
                 }
 
                 VStack(alignment: .leading, spacing: 14) {
@@ -73,9 +75,9 @@ struct HomeView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 14) {
-                    SectionHeader(title: "Laporan Terbaru", subtitle: "Ringkasan sekitar \(viewModel.activeFarm.name)")
+                    SectionHeader(title: "Laporan Terbaru", subtitle: "Ringkasan sekitar \(activeFarmName)")
 
-                    ForEach(viewModel.latestReports) { report in
+                    ForEach(viewModel?.recentReports ?? []) { report in
                         HomeReportCard(report: report)
                     }
                 }
@@ -85,6 +87,17 @@ struct HomeView: View {
         .background(RTDColor.background)
         .navigationTitle("Beranda")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            if viewModel == nil { viewModel = env.makeHomeVM() }
+            await viewModel?.load()
+            await loadActiveFarmName()
+        }
+    }
+
+    private func loadActiveFarmName() async {
+        if let page = try? await env.farms.farms(page: 1, pageSize: 100) {
+            activeFarmName = page.items.first { $0.isActive }?.name ?? page.items.first?.name ?? "Lahan Anda"
+        }
     }
 }
 
@@ -155,12 +168,12 @@ private struct HomeActionRow: View {
 }
 
 private struct HomeReportCard: View {
-    let report: RadarReport
+    let report: FeedReportOut
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                CategoryChip(title: report.category.rawValue, systemImage: report.category.icon, color: report.category.color, isSelected: false)
+                CategoryChip(title: report.category, systemImage: report.categoryIcon, color: report.categoryColor, isSelected: false)
                 Spacer()
                 Text(report.distance)
                     .font(.caption.weight(.semibold))

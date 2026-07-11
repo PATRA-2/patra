@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct RadarTaniApp: App {
+    @State private var environment = AppEnvironment()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(environment)
         }
     }
 }

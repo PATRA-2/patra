@@ -2,21 +2,24 @@ import MapKit
 import SwiftUI
 
 struct RadarMapView: View {
-    @State private var viewModel = RadarMapViewModel()
+    @Environment(AppEnvironment.self) private var env
+    @State private var viewModel: RadarMapViewModel?
     @State private var position: MapCameraPosition = .automatic
-    @State private var selectedReportID: RadarMapReport.ID?
+    @State private var selectedReportID: MapReportOut.ID?
 
     var body: some View {
         ZStack(alignment: .top) {
             Map(position: $position, selection: $selectedReportID) {
-                ForEach(viewModel.reports) { report in
-                    Annotation(report.title, coordinate: report.coordinate, anchor: .bottom) {
+                ForEach(viewModel?.reports ?? []) { report in
+                    Annotation(report.title, coordinate: CLLocationCoordinate2D(
+                        latitude: report.coordinate.latitude, longitude: report.coordinate.longitude), anchor: .bottom) {
                         ReportMapAnnotation(report: report, isSelected: selectedReportID == report.id)
                     }
                     .tag(report.id)
 
-                    if report.category == .pest {
-                        MapCircle(center: report.coordinate, radius: 1_500)
+                    if report.category == "Hama" {
+                        MapCircle(center: CLLocationCoordinate2D(
+                            latitude: report.coordinate.latitude, longitude: report.coordinate.longitude), radius: 1_500)
                             .foregroundStyle(RTDColor.warningRed.opacity(0.12))
                             .stroke(RTDColor.warningRed.opacity(0.45), lineWidth: 1)
                     }
@@ -52,7 +55,7 @@ struct RadarMapView: View {
             .padding(.top, 12)
         }
         .safeAreaInset(edge: .bottom) {
-            if let report = viewModel.report(with: selectedReportID) {
+            if let report = viewModel?.report(with: selectedReportID) {
                 SelectedMapReportCard(report: report)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
@@ -61,33 +64,37 @@ struct RadarMapView: View {
         .background(RTDColor.background)
         .navigationTitle("Peta")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            position = .region(viewModel.initialRegion)
-            selectedReportID = viewModel.reports.first?.id
+        .task {
+            if viewModel == nil {
+                viewModel = env.makeRadarMapVM()
+                if let initial = viewModel?.initialRegion {
+                    position = .region(initial)
+                }
+            }
+            if (viewModel?.reports.isEmpty ?? true) { await viewModel?.load() }
+            if selectedReportID == nil { selectedReportID = viewModel?.reports.first?.id }
         }
     }
 }
 
 private struct SelectedMapReportCard: View {
-    let report: RadarMapReport
+    let report: MapReportOut
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                CategoryChip(title: report.category.rawValue, systemImage: report.category.icon, color: report.category.color, isSelected: false)
+                CategoryChip(title: report.category, systemImage: report.categoryIcon, color: report.categoryColor, isSelected: false)
                 Spacer()
-                DistanceLabel(distance: report.distance)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(RTDColor.textSecondary)
+                DistanceLabel(distance: report.category)
             }
 
             Text(report.title)
                 .font(.headline)
                 .foregroundStyle(RTDColor.textPrimary)
-            Text(report.summary)
+            Text(report.status)
                 .font(.callout)
                 .foregroundStyle(RTDColor.textSecondary)
-            Text(report.status)
+            Text(report.createdAt, format: .relative(presentation: .named))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(report.status == "Terverifikasi" ? RTDColor.safeGreen : RTDColor.warningOrange)
         }

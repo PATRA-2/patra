@@ -1,10 +1,10 @@
+import Foundation
 import Observation
 import UIKit
 
 @MainActor
 @Observable
 final class PlantScanViewModel {
-    let activeFarm = Farm(name: "Sawah Utara", crop: "Padi", location: "Desa Sukamaju", isActive: true)
     let tips = [
         "Foto tanaman yang menunjukkan gejala tidak biasa.",
         "Ambil gambar daun atau batang dengan pencahayaan jelas.",
@@ -19,7 +19,38 @@ final class PlantScanViewModel {
     var navigateToCreateReport = false
     var permissionAlertMessage = ""
 
+    // Backend integration state
+    var activeFarm: FarmOut?
+    private(set) var createdReport: PlantReportOut?
+    private(set) var isLoading = false
+    private(set) var errorMessage: String?
+
     private let imageSelectionService = ImageSelectionService()
+    private let reportService: ReportService
+    private let farmService: FarmService
+
+    init(env: AppEnvironment) {
+        self.reportService = env.reports
+        self.farmService = env.farms
+    }
+
+    func loadActiveFarm() async {
+        let page = try? await farmService.farms(page: 1, pageSize: 100)
+        activeFarm = page?.items.first { $0.isActive } ?? page?.items.first
+    }
+
+    func submitReport(title: String, category: String, description: String?,
+                      farmId: UUID?, latitude: Double?, longitude: Double?) async {
+        guard let image = selectedImage else { errorMessage = "Pilih foto dulu."; return }
+        isLoading = true; defer { isLoading = false }
+        do {
+            createdReport = try await reportService.create(
+                image: image, title: title, category: category, description: description,
+                farmId: farmId, latitude: latitude, longitude: longitude, publishToFeed: true)
+        } catch {
+            errorMessage = (error as? APIError)?.userMessage ?? "Gagal mengirim laporan."
+        }
+    }
 
     func didTapAmbilFoto() {
         showSourceSheet = true

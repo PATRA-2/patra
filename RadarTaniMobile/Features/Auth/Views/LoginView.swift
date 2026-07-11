@@ -1,9 +1,8 @@
 import SwiftUI
 
 struct LoginView: View {
-    let onLogin: (String) -> Void
-
-    @State private var viewModel = LoginViewModel()
+    @Environment(AppEnvironment.self) private var env
+    @State private var viewModel: LoginViewModel?
     @FocusState private var focusedField: Field?
 
     var body: some View {
@@ -20,6 +19,7 @@ struct LoginView: View {
                 .padding(.vertical, 28)
             }
         }
+        .task { if viewModel == nil { viewModel = env.makeLoginVM() } }
     }
 
     private var heroCard: some View {
@@ -71,15 +71,15 @@ struct LoginView: View {
                 .font(.callout)
                 .foregroundStyle(RTDColor.textSecondary)
 
-            loginField("Email", icon: "envelope.fill", text: $viewModel.email, prompt: "nama@email.com", field: .email)
+            loginField("Email", icon: "envelope.fill", text: textBinding(\.email), prompt: "nama@email.com", field: .email)
                 .keyboardType(.emailAddress)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-            loginField("Password", icon: "lock.fill", text: $viewModel.password, prompt: "Masukkan password", field: .password, isSecure: true)
+            loginField("Password", icon: "lock.fill", text: textBinding(\.password), prompt: "Masukkan password", field: .password, isSecure: true)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
 
-            if let errorMessage = viewModel.errorMessage {
+            if let errorMessage = viewModel?.errorMessage {
                 Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(RTDColor.warningRed)
@@ -87,12 +87,12 @@ struct LoginView: View {
 
             Button { submitLogin() } label: {
                 HStack(spacing: 10) {
-                    if viewModel.isLoading { ProgressView().tint(RTDColor.textPrimary) }
-                    Text(viewModel.isLoading ? "Memeriksa akun..." : "Masuk")
+                    if viewModel?.isLoading == true { ProgressView().tint(RTDColor.textPrimary) }
+                    Text(viewModel?.isLoading == true ? "Memeriksa akun..." : "Masuk")
                 }
             }
             .buttonStyle(PrimaryButtonStyle())
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel?.isLoading == true)
 
             NavigationLink(value: AuthRoute.registerFarmer) {
                 Text("Daftar sebagai Petani")
@@ -101,7 +101,7 @@ struct LoginView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
             }
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel?.isLoading == true)
         }
         .padding(20)
         .rtdCard(radius: 28)
@@ -114,6 +114,13 @@ struct LoginView: View {
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 16)
+    }
+
+    private func textBinding(_ keyPath: WritableKeyPath<LoginViewModel, String>) -> Binding<String> {
+        Binding(
+            get: { viewModel?[keyPath: keyPath] ?? "" },
+            set: { viewModel?[keyPath: keyPath] = $0 }
+        )
     }
 
     private func loginField(_ title: String, icon: String, text: Binding<String>, prompt: String, field: Field, isSecure: Bool = false) -> some View {
@@ -142,11 +149,7 @@ struct LoginView: View {
 
     private func submitLogin() {
         focusedField = nil
-        Task {
-            if let email = await viewModel.login() {
-                onLogin(email)
-            }
-        }
+        Task { if let viewModel { _ = await viewModel.login() } }
     }
 
     private enum Field { case email, password }

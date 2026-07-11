@@ -1,18 +1,25 @@
 import SwiftUI
 
 struct FarmListView: View {
-    @State private var viewModel = FarmListViewModel()
+    @Environment(AppEnvironment.self) private var env
+    @State private var viewModel: FarmListViewModel?
+    @State private var showAddFarm = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 SectionHeader(title: "Lahan Saya", subtitle: "Kelola lahan aktif untuk radius laporan sekitar")
 
-                ForEach(viewModel.farms) { farm in
+                ForEach(viewModel?.farms ?? []) { farm in
                     FarmCard(farm: farm)
                 }
 
-                Button {} label: {
+                if let message = viewModel?.errorMessage, (viewModel?.farms.isEmpty ?? true) {
+                    RTDErrorView(message: message)
+                    Button("Coba lagi") { Task { await viewModel?.load() } }
+                }
+
+                Button { showAddFarm = true } label: {
                     Label("Tambah Lahan", systemImage: "plus")
                 }
                 .buttonStyle(PrimaryButtonStyle())
@@ -23,11 +30,20 @@ struct FarmListView: View {
         .background(RTDColor.background)
         .navigationTitle("Lahan")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            if viewModel == nil { viewModel = env.makeFarmListVM() }
+            await viewModel?.load()
+        }
+        .sheet(isPresented: $showAddFarm) {
+            NavigationStack {
+                AddFarmView()
+            }
+        }
     }
 }
 
 private struct FarmCard: View {
-    let farm: Farm
+    let farm: FarmOut
 
     var body: some View {
         HStack(spacing: 14) {

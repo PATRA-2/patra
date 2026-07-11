@@ -1,4 +1,5 @@
-struct APIResponse<T: Codable & Sendable>: Codable, Sendable {
-    var data: T
-    var message: String?
+import Foundation
+
+nonisolated struct APIResponse<T: Decodable>: Decodable {
+    let data: T
 }

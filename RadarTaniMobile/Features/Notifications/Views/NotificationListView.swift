@@ -1,5 +1,78 @@
 import SwiftUI
 
 struct NotificationListView: View {
-    var body: some View { FeaturePlaceholderView(title: "Notifikasi", message: "Daftar notifikasi laporan akan tampil di sini.", systemImage: "bell.fill") }
+    @Environment(AppEnvironment.self) private var env
+    @State private var viewModel: NotificationListViewModel?
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                SectionHeader(title: "Notifikasi", subtitle: "Status laporan dan peringatan terbaru")
+
+                if (viewModel?.items.isEmpty ?? false) && !(viewModel?.isLoading ?? false) {
+                    RTDEmptyStateView(
+                        title: "Belum ada notifikasi",
+                        message: "Notifikasi laporan akan muncul di sini setelah laporan Anda diproses.",
+                        systemImage: "bell.fill"
+                    )
+                    .frame(maxWidth: .infinity)
+                    .rtdCard()
+                } else {
+                    ForEach(viewModel?.items ?? []) { item in
+                        NotificationCard(item: item) {
+                            Task { await viewModel?.markRead(item.id) }
+                        }
+                    }
+
+                    Button("Tandai Semua Dibaca") {
+                        Task { await viewModel?.markAllRead() }
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .padding(.top, 4)
+                }
+            }
+            .padding(20)
+        }
+        .background(RTDColor.background)
+        .navigationTitle("Notifikasi")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            if viewModel == nil { viewModel = env.makeNotificationListVM() }
+            await viewModel?.load()
+        }
+    }
+}
+
+struct NotificationCard: View {
+    let item: NotificationOut
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: item.isRead ? "bell.fill" : "bell.badge.fill")
+                    .font(.title3)
+                    .foregroundStyle(item.isRead ? RTDColor.textSecondary : RTDColor.warningOrange)
+                    .frame(width: 40, height: 40)
+                    .background(RTDColor.softGreen, in: Circle())
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(item.title)
+                        .font(.headline)
+                        .foregroundStyle(RTDColor.textPrimary)
+                    Text(item.message)
+                        .font(.callout)
+                        .foregroundStyle(RTDColor.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(item.createdAt, format: .relative(presentation: .named))
+                        .font(.caption)
+                        .foregroundStyle(RTDColor.textSecondary)
+                }
+                Spacer()
+            }
+            .padding(16)
+            .rtdCard()
+        }
+        .buttonStyle(.plain)
+    }
 }
