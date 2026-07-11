@@ -258,9 +258,9 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kamera digunakan untuk mengambil foto tanaman sebagai laporan.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Lokasi digunakan untuk menentukan posisi lahan Anda dan menampilkan laporan sekitar di Radar Feed.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Akses galeri digunakan untuk menyimpan foto tanaman dari kamera.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Akses galeri digunakan untuk memilih foto tanaman dari perangkat.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Lokasi digunakan untuk menentukan posisi lahan Anda dan menampilkan laporan sekitar di Radar Feed.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -295,9 +295,9 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kamera digunakan untuk mengambil foto tanaman sebagai laporan.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Lokasi digunakan untuk menentukan posisi lahan Anda dan menampilkan laporan sekitar di Radar Feed.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Akses galeri digunakan untuk menyimpan foto tanaman dari kamera.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Akses galeri digunakan untuk memilih foto tanaman dari perangkat.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Lokasi digunakan untuk menentukan posisi lahan Anda dan menampilkan laporan sekitar di Radar Feed.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
