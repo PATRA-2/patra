@@ -7,7 +7,7 @@ from uuid import UUID
 import anyio
 
 from app.config import Settings
-from app.schemas import DiagnosisResult
+from app.schemas import DiagnosisResult, PlantChatDiagnosisIn
 
 
 @dataclass(slots=True)
@@ -36,6 +36,8 @@ class AIService(Protocol):
         crop: str | None,
         symptom_notes: str | None,
     ) -> DiagnosisResult: ...
+
+    async def chat(self, message: str, diagnosis: PlantChatDiagnosisIn) -> str: ...
 
 
 class NotificationService(Protocol):
@@ -131,6 +133,25 @@ class DemoAI:
             crop_type=crop,
         )
 
+    async def chat(self, message: str, diagnosis: PlantChatDiagnosisIn) -> str:
+        normalized = message.lower()
+        if "hari ini" in normalized or "sekarang" in normalized:
+            advice = (
+                "Hari ini, tandai area terdampak, pisahkan daun yang paling rusak, "
+                "dan foto ulang dari sudut yang sama untuk membandingkan perubahan besok."
+            )
+        elif "penyuluh" in normalized or "koperasi" in normalized:
+            advice = (
+                "Hubungi koperasi atau penyuluh jika gejala meluas cepat, lebih dari satu "
+                "petak terdampak, atau tanaman mulai layu."
+            )
+        else:
+            advice = (
+                f"Berdasarkan perkiraan {diagnosis.prediction.lower()}, lanjutkan pemantauan "
+                "harian dan catat perubahan gejala."
+            )
+        return advice + " Hindari menentukan pestisida hanya dari hasil AI."
+
 
 class GeminiAI:
     def __init__(self, settings: Settings) -> None:
@@ -168,6 +189,26 @@ class GeminiAI:
         if isinstance(parsed, dict):
             return DiagnosisResult.model_validate(parsed)
         return DiagnosisResult.model_validate_json(response.text)
+
+    async def chat(self, message: str, diagnosis: PlantChatDiagnosisIn) -> str:
+        prompt = (
+            "Jawab pertanyaan petani dalam Bahasa Indonesia dengan saran pemantauan yang "
+            "aman, singkat, dan tidak menetapkan diagnosis final atau merekomendasikan "
+            "pestisida spesifik. "
+            f"Perkiraan awal: {diagnosis.prediction}. "
+            f"Keyakinan: {diagnosis.confidence}%. "
+            f"Gejala: {diagnosis.symptoms}. "
+            f"Rekomendasi awal: {diagnosis.recommendation}. "
+            f"Pertanyaan petani: {message}"
+        )
+        response = await self.client.aio.models.generate_content(
+            model=self.model,
+            contents=prompt,
+        )
+        reply = (response.text or "").strip()
+        if not reply:
+            raise RuntimeError("Gemini tidak mengembalikan jawaban chat.")
+        return reply
 
 
 class DemoNotifier:

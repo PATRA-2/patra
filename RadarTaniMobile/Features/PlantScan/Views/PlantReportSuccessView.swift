@@ -45,7 +45,10 @@ struct PlantReportSuccessView: View {
                                     .foregroundStyle(RTDColor.textSecondary)
                             }
                             Spacer()
-                            RTDBadge(title: "Menunggu verifikasi", color: RTDColor.infoBlue)
+                            RTDBadge(
+                                title: task.report?.status ?? "Menunggu verifikasi",
+                                color: RTDColor.infoBlue
+                            )
                         }
 
                         Divider()

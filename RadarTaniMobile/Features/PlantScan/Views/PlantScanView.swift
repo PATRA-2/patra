@@ -29,6 +29,7 @@ struct PlantScanView: View {
         }
         .environment(analysisStore)
         .task {
+            analysisStore.configure(aiService: env.ai, reportService: env.reports)
             if viewModel == nil {
                 let vm = env.makePlantScanVM()
                 await vm.loadActiveFarm()
@@ -70,19 +71,16 @@ struct PlantScanView: View {
             Button("Galeri") { viewModel.selectSource(.photoLibrary) }
             Button("Batal", role: .cancel) {}
         }
-        .sheet(isPresented: imagePickerBinding(viewModel)) {
-            ImagePickerCoordinator(
-                sourceType: viewModel.imagePickerSourceType,
-                selectedImage: Binding(
-                    get: { viewModel.selectedImage },
-                    set: { image in
-                        viewModel.didPickImage(image)
-                        guard let image else { return }
-                        analysisStore.prepare(image: image)
-                        path = [.compose]
-                    }
-                )
-            )
+        .fullScreenCover(isPresented: cameraImagePickerBinding(viewModel)) {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                imagePickerCoordinator(viewModel)
+                    .ignoresSafeArea()
+            }
+            .background(Color.black.ignoresSafeArea())
+        }
+        .sheet(isPresented: photoLibraryImagePickerBinding(viewModel)) {
+            imagePickerCoordinator(viewModel)
         }
         .alert("Izin Diperlukan", isPresented: permissionAlertBinding(viewModel)) {
             Button("Batal", role: .cancel) {}
@@ -119,40 +117,37 @@ struct PlantScanView: View {
     }
 
     private func activeFarmCard(_ farm: FarmOut) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+        RadarSummaryHeroCard(decorativeSystemImage: "leaf.circle.fill") {
             HStack(alignment: .top, spacing: 14) {
-                Image(systemName: "leaf.circle.fill")
-                    .font(.system(size: 42))
-                    .foregroundStyle(RTDColor.deepGreen, RTDColor.primaryGreen)
+                Image(systemName: "leaf.fill")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(RTDColor.primaryGreen)
+                    .frame(width: 46, height: 46)
+                    .background(.white.opacity(0.16), in: Circle())
                     .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 5) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text("Lahan aktif")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(RTDColor.textSecondary)
-                    Text(farm.name)
-                        .font(.title3.bold())
-                        .foregroundStyle(RTDColor.textPrimary)
-                    Text("\(farm.crop) · \(farm.location)")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+
+                    Text("Laporan baru akan menggunakan data dan titik lokasi lahan ini.")
                         .font(.callout)
-                        .foregroundStyle(RTDColor.textSecondary)
+                        .foregroundStyle(.white.opacity(0.86))
                         .fixedSize(horizontal: false, vertical: true)
                 }
-
-                Spacer(minLength: 8)
             }
 
-            HStack(spacing: 10) {
-                Label("Lokasi laporan dari lahan ini", systemImage: "mappin.and.ellipse")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(RTDColor.deepGreen)
-                Spacer(minLength: 8)
+            HStack(spacing: 12) {
+                RadarSummaryMetric(title: "Nama lahan", value: farm.name, systemImage: "leaf.fill")
+                RadarSummaryMetric(title: "Tanaman", value: farm.crop, systemImage: "camera.macro")
+                RadarSummaryMetric(title: "Lokasi", value: farm.location, systemImage: "mappin.and.ellipse")
             }
             .padding(12)
-            .background(RTDColor.softGreen.opacity(0.75), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
-        .padding(18)
-        .rtdCard()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Lahan aktif, \(farm.name), tanaman \(farm.crop), lokasi \(farm.location)")
     }
 
     private func sourceActions(_ viewModel: PlantScanViewModel) -> some View {
@@ -336,31 +331,41 @@ struct PlantScanView: View {
     }
 
     private var missingFarmCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Image(systemName: "leaf.arrow.circlepath")
-                .font(.system(size: 48))
-                .foregroundStyle(RTDColor.deepGreen, RTDColor.primaryGreen)
-                .accessibilityHidden(true)
+        RadarSummaryHeroCard(decorativeSystemImage: "leaf.arrow.circlepath") {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "leaf.arrow.circlepath")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(RTDColor.primaryGreen)
+                    .frame(width: 46, height: 46)
+                    .background(.white.opacity(0.16), in: Circle())
+                    .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Tambahkan lahan aktif dulu")
-                    .font(.title2.bold())
-                    .foregroundStyle(RTDColor.textPrimary)
-                Text("Laporan membutuhkan nama lahan, jenis tanaman, dan lokasi agar koperasi bisa memeriksa konteks tanaman.")
-                    .font(.body)
-                    .foregroundStyle(RTDColor.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Tambahkan lahan aktif dulu")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text("Laporan membutuhkan nama lahan, jenis tanaman, dan lokasi agar koperasi bisa memeriksa konteks tanaman.")
+                        .font(.callout)
+                        .foregroundStyle(.white.opacity(0.86))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Button {
                 selectedTab = .farms
             } label: {
                 Label("Tambah Lahan", systemImage: "plus.circle.fill")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(RTDColor.textPrimary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(RTDColor.primaryGreen, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
-            .buttonStyle(PrimaryButtonStyle())
+            .buttonStyle(.plain)
+            .accessibilityHint("Membuka tab Lahan untuk menambahkan lahan aktif")
         }
-        .padding(22)
-        .rtdCard()
     }
 
     private func open(_ task: PlantAnalysisTask) {
@@ -389,8 +394,37 @@ struct PlantScanView: View {
         Binding(get: { vm.showSourceSheet }, set: { vm.showSourceSheet = $0 })
     }
 
-    private func imagePickerBinding(_ vm: PlantScanViewModel) -> Binding<Bool> {
-        Binding(get: { vm.showImagePicker }, set: { vm.showImagePicker = $0 })
+    private func cameraImagePickerBinding(_ vm: PlantScanViewModel) -> Binding<Bool> {
+        Binding(
+            get: { vm.showImagePicker && vm.imagePickerSourceType == .camera },
+            set: { isPresented in
+                if !isPresented { vm.showImagePicker = false }
+            }
+        )
+    }
+
+    private func photoLibraryImagePickerBinding(_ vm: PlantScanViewModel) -> Binding<Bool> {
+        Binding(
+            get: { vm.showImagePicker && vm.imagePickerSourceType != .camera },
+            set: { isPresented in
+                if !isPresented { vm.showImagePicker = false }
+            }
+        )
+    }
+
+    private func imagePickerCoordinator(_ vm: PlantScanViewModel) -> ImagePickerCoordinator {
+        ImagePickerCoordinator(
+            sourceType: vm.imagePickerSourceType,
+            selectedImage: Binding(
+                get: { vm.selectedImage },
+                set: { image in
+                    vm.didPickImage(image)
+                    guard let image else { return }
+                    analysisStore.prepare(image: image)
+                    path = [.compose]
+                }
+            )
+        )
     }
 
     private func permissionAlertBinding(_ vm: PlantScanViewModel) -> Binding<Bool> {

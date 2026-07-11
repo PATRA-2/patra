@@ -36,6 +36,14 @@ struct ReportService: Sendable {
         try await client.request(PlantReportOut.self, endpoint: APIRoute.report(id))
     }
 
+    func update(_ id: UUID, changes: PlantReportUpdate) async throws -> PlantReportOut {
+        let body = try APICoder.encoder.encode(changes)
+        return try await client.request(
+            PlantReportOut.self,
+            endpoint: APIRoute.reportUpdate(id).withBody(body)
+        )
+    }
+
     func delete(_ id: UUID) async throws {
         try await client.requestVoid(APIRoute.reportDelete(id))
     }

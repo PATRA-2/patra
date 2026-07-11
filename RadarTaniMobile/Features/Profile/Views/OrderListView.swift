@@ -39,6 +39,7 @@ private struct CreateOrderSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var productName = ""
     @State private var quantity = 1
+    @State private var relatedReportID: UUID?
     @State private var isLoading = false
 
     var body: some View {
@@ -46,7 +47,13 @@ private struct CreateOrderSheet: View {
             Form {
                 Section("Pesanan Baru") {
                     TextField("Nama produk", text: $productName)
-                    Stepper("\(quantity) unit", value: $quantity, in: 1...999)
+                    Stepper("\(quantity) unit", value: $quantity, in: 1...10_000)
+                    Picker("Laporan terkait", selection: $relatedReportID) {
+                        Text("Tanpa laporan").tag(nil as UUID?)
+                        ForEach(viewModel.relatedReports) { report in
+                            Text(report.title).tag(report.id as UUID?)
+                        }
+                    }
                 }
                 if let errorMessage = viewModel.errorMessage {
                     Section { Text(errorMessage).foregroundStyle(RTDColor.warningRed) }
@@ -68,7 +75,11 @@ private struct CreateOrderSheet: View {
 
     private func submit() async {
         isLoading = true; defer { isLoading = false }
-        let success = await viewModel.create(productName: productName, quantity: quantity)
+        let success = await viewModel.create(
+            productName: productName,
+            quantity: quantity,
+            relatedReportId: relatedReportID
+        )
         if success { dismiss() }
     }
 }

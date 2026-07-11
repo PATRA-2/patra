@@ -1,6 +1,6 @@
 import Foundation
 
-enum APIRoute {
+nonisolated enum APIRoute {
     // Health
     static let health = APIEndpoint(path: "/health", method: .get, auth: .public_)
 
@@ -40,6 +40,7 @@ enum APIRoute {
     static func reportUpdate(_ id: UUID) -> APIEndpoint { .init(path: "/plant-reports/\(id)", method: .patch, auth: .required) }
     static func reportDelete(_ id: UUID) -> APIEndpoint { .init(path: "/plant-reports/\(id)", method: .delete, auth: .required) }
     static let diagnose = APIEndpoint(path: "/plant-diagnoses", method: .post, auth: .required, accepts: .multipart)
+    static let plantAIChat = APIEndpoint(path: "/plant-ai/chat", method: .post, auth: .required)
 
     // Radar feed + map
     static func radarFeed(lat: Double? = nil, long: Double? = nil, radiusKm: Double = 10,

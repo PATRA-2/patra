@@ -16,6 +16,10 @@ struct ReportHistoryView: View {
 
                 if isLoading {
                     RTDLoadingView().frame(maxWidth: .infinity).padding(.vertical, 40)
+                } else if let errorMessage {
+                    RTDErrorView(message: errorMessage)
+                    Button("Coba Lagi") { Task { await load() } }
+                        .buttonStyle(PrimaryButtonStyle())
                 } else if reports.isEmpty {
                     RTDEmptyStateView(
                         title: "Belum ada laporan",
@@ -27,6 +31,11 @@ struct ReportHistoryView: View {
                 } else {
                     ForEach(reports) { report in
                         ReportHistoryCard(item: ReportHistoryItem(from: report))
+                            .contextMenu {
+                                Button("Hapus Laporan", role: .destructive) {
+                                    Task { await delete(report) }
+                                }
+                            }
                     }
                 }
             }
@@ -44,8 +53,18 @@ struct ReportHistoryView: View {
         isLoading = true; defer { isLoading = false }
         do {
             reports = try await env.reports.list().items
+            errorMessage = nil
         } catch {
             errorMessage = (error as? APIError)?.userMessage ?? "Gagal memuat riwayat."
+        }
+    }
+
+    private func delete(_ report: PlantReportOut) async {
+        do {
+            try await env.reports.delete(report.id)
+            await load()
+        } catch {
+            errorMessage = (error as? APIError)?.userMessage ?? "Laporan gagal dihapus dari server."
         }
     }
 }

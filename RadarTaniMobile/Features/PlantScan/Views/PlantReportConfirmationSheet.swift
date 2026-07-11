@@ -2,10 +2,14 @@ import SwiftUI
 
 struct PlantReportConfirmationSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(PlantAnalysisStore.self) private var analysisStore
 
     let task: PlantAnalysisTask
     let diagnosis: AIPlantDiagnosis
-    let onConfirm: () -> Void
+    let onConfirm: (PlantReportOut) -> Void
+
+    @State private var isSubmitting = false
+    @State private var errorMessage: String?
 
     var body: some View {
         ScrollView {
@@ -83,17 +87,30 @@ struct PlantReportConfirmationSheet: View {
                 .foregroundStyle(RTDColor.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+                if let errorMessage {
+                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                        .font(.callout)
+                        .foregroundStyle(RTDColor.warningRed)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 Button {
-                    dismiss()
-                    onConfirm()
+                    Task { await submit() }
                 } label: {
-                    Label("Kirim Laporan", systemImage: "paperplane.fill")
+                    if isSubmitting {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Label("Kirim Laporan", systemImage: "paperplane.fill")
+                    }
                 }
                 .buttonStyle(PrimaryButtonStyle())
+                .disabled(isSubmitting)
 
                 Button("Batal", role: .cancel) {
                     dismiss()
                 }
+                .disabled(isSubmitting)
                 .font(.headline)
                 .foregroundStyle(RTDColor.textSecondary)
                 .frame(maxWidth: .infinity)
@@ -102,5 +119,20 @@ struct PlantReportConfirmationSheet: View {
         }
         .background(RTDColor.background)
         .interactiveDismissDisabled(false)
+    }
+
+    private func submit() async {
+        guard !isSubmitting else { return }
+        isSubmitting = true
+        errorMessage = nil
+        defer { isSubmitting = false }
+
+        do {
+            let report = try await analysisStore.submitReport(taskID: task.id)
+            dismiss()
+            onConfirm(report)
+        } catch {
+            errorMessage = (error as? APIError)?.userMessage ?? "Laporan gagal disimpan ke server."
+        }
     }
 }

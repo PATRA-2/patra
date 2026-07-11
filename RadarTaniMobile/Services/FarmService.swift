@@ -14,7 +14,7 @@ struct FarmService: Sendable {
         let body = try APICoder.encoder.encode(farm)
         return try await client.request(FarmOut.self, endpoint: APIRoute.farmUpdate(id).withBody(body))
     }
-    func delete(_ id: UUID) async throws {
-        try await client.requestVoid(APIRoute.farmDelete(id))
+    func delete(_ id: UUID, force: Bool = false) async throws {
+        try await client.requestVoid(APIRoute.farmDelete(id, force: force))
     }
 }

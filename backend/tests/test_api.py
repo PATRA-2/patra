@@ -96,6 +96,7 @@ def test_health_openapi_security_and_validation_shape(client: TestClient) -> Non
     openapi = client.get("/openapi.json").json()
     assert "BearerAuth" in openapi["components"]["securitySchemes"]
     assert "/api/v1/plant-reports" in openapi["paths"]
+    assert "/api/v1/plant-ai/chat" in openapi["paths"]
     assert "/api/v1/dashboard/reports/{report_id}/verify-broadcast" in openapi["paths"]
     validation_schema = openapi["paths"]["/api/v1/auth/register"]["post"]["responses"]["422"]
     assert validation_schema["content"]["application/json"]["schema"]["$ref"].endswith(
@@ -210,6 +211,22 @@ def test_report_diagnosis_feed_map_and_orders(client: TestClient) -> None:
     assert diagnosis.status_code == 200
     assert diagnosis.json()["data"]["confidence"] == 82
 
+    chat = client.post(
+        "/api/v1/plant-ai/chat",
+        headers=auth_header(token),
+        json={
+            "message": "Apa yang harus dilakukan hari ini?",
+            "diagnosis": {
+                "prediction": diagnosis.json()["data"]["prediction"],
+                "confidence": diagnosis.json()["data"]["confidence"],
+                "symptoms": diagnosis.json()["data"]["symptoms"],
+                "recommendation": diagnosis.json()["data"]["recommendation"],
+            },
+        },
+    )
+    assert chat.status_code == 200
+    assert "Hari ini" in chat.json()["data"]["reply"]
+
     unsupported = client.post(
         "/api/v1/plant-diagnoses",
         headers=auth_header(token),
@@ -301,6 +318,17 @@ def test_cross_user_ownership_and_farm_required(client: TestClient) -> None:
     second_headers = auth_header(second["access_token"])
     forbidden = client.get(f"/api/v1/plant-reports/{report['id']}", headers=second_headers)
     assert forbidden.status_code == 403
+
+    forbidden_order = client.post(
+        "/api/v1/pesticide-orders",
+        headers=second_headers,
+        json={
+            "product_name": "Pestisida milik user lain",
+            "quantity": 1,
+            "related_report_id": report["id"],
+        },
+    )
+    assert forbidden_order.status_code == 403
 
     missing_farm = client.post(
         "/api/v1/plant-reports",

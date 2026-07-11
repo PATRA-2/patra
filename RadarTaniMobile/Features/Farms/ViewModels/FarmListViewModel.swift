@@ -4,6 +4,7 @@ import Observation
 @Observable
 final class FarmListViewModel {
     private let farmStore: FarmStore
+    private(set) var actionErrorMessage: String?
 
     init(farmStore: FarmStore) {
         self.farmStore = farmStore
@@ -11,16 +12,33 @@ final class FarmListViewModel {
 
     var farms: [Farm] { farmStore.farms }
     var activeFarm: Farm? { farmStore.activeFarm }
+    var isLoading: Bool { farmStore.isLoading }
+    var errorMessage: String? { actionErrorMessage ?? farmStore.errorMessage }
 
-    func setActive(_ farm: Farm) {
-        farmStore.setActiveFarm(id: farm.id)
-        HapticManager.selection()
+    func load() async {
+        await farmStore.load()
+    }
+
+    func setActive(_ farm: Farm) async {
+        do {
+            try await farmStore.setActiveFarm(id: farm.id)
+            actionErrorMessage = nil
+            HapticManager.selection()
+        } catch {
+            actionErrorMessage = (error as? APIError)?.userMessage ?? "Lahan aktif gagal diperbarui di server."
+        }
     }
 
     @discardableResult
-    func delete(_ farm: Farm) -> Farm? {
-        let deleted = farmStore.deleteFarm(id: farm.id)
-        if deleted != nil { HapticManager.selection() }
-        return deleted
+    func delete(_ farm: Farm, force: Bool = false) async -> Bool {
+        do {
+            _ = try await farmStore.deleteFarm(id: farm.id, force: force)
+            actionErrorMessage = nil
+            HapticManager.selection()
+            return true
+        } catch {
+            actionErrorMessage = (error as? APIError)?.userMessage ?? "Lahan gagal dihapus dari server."
+            return false
+        }
     }
 }

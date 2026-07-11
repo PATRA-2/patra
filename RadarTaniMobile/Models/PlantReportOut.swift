@@ -26,3 +26,15 @@ nonisolated struct PlantReportOut: Identifiable, Hashable, Decodable, Sendable {
         case updatedAt = "updated_at"
     }
 }
+
+nonisolated struct PlantReportUpdate: Encodable, Sendable {
+    let title: String?
+    let category: String?
+    let description: String?
+    let publishToFeed: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case title, category, description
+        case publishToFeed = "publish_to_feed"
+    }
+}

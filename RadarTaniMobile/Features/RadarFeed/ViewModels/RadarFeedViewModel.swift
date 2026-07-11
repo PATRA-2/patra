@@ -9,7 +9,7 @@ final class RadarFeedViewModel {
     private(set) var isRefreshing = false
     private(set) var errorMessage: String?
     var selectedCategory: String?
-    private(set) var availableCategories: [String] = []
+    let availableCategories = PlantReportCategory.allCases.map(\.rawValue)
 
     let feedRadius = "10 km"
     private let feed: RadarFeedService
@@ -35,7 +35,6 @@ final class RadarFeedViewModel {
             let page = try await feed.feed(lat: lat, long: long, radiusKm: 10,
                                            category: selectedCategory, page: 1, pageSize: 20)
             reports = page.items
-            availableCategories = Array(Set(page.items.map(\.category))).sorted()
         } catch {
             errorMessage = (error as? APIError)?.userMessage ?? "Gagal memuat feed."
         }

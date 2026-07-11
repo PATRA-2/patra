@@ -15,20 +15,14 @@ actor APIClient {
     }
 
     func requestVoid(_ endpoint: APIEndpoint) async throws {
-        let (data, status) = try await rawSend(endpoint)
+        let (data, status) = try await sendWithRefresh(endpoint)
         guard (200..<300).contains(status) else {
             throw decodeError(status: status, data: data)
         }
     }
 
     func request<T: Decodable & Sendable>(_ type: T.Type, endpoint: APIEndpoint) async throws -> T {
-        var (data, status) = try await rawSend(endpoint)
-
-        if status == 401, endpoint.path != "/auth/refresh", tokenStore.refresh() != nil {
-            _ = try await refreshOnce()
-            (data, status) = try await rawSend(endpoint)
-            if status == 401 { await logoutAndClear(); throw APIError.unauthenticated }
-        }
+        let (data, status) = try await sendWithRefresh(endpoint)
 
         guard (200..<300).contains(status) else {
             throw decodeError(status: status, data: data)
@@ -42,12 +36,11 @@ actor APIClient {
 
     func upload<T: Decodable & Sendable>(_ type: T.Type, endpoint: APIEndpoint,
                                           body: Data, contentType: String) async throws -> T {
-        var (data, status) = try await rawSend(endpoint, body: body, contentType: contentType)
-        if status == 401, endpoint.path != "/auth/refresh", tokenStore.refresh() != nil {
-            _ = try await refreshOnce()
-            (data, status) = try await rawSend(endpoint, body: body, contentType: contentType)
-            if status == 401 { await logoutAndClear(); throw APIError.unauthenticated }
-        }
+        let (data, status) = try await sendWithRefresh(
+            endpoint,
+            body: body,
+            contentType: contentType
+        )
         guard (200..<300).contains(status) else {
             throw decodeError(status: status, data: data)
         }
@@ -75,6 +68,32 @@ actor APIClient {
         refreshTask = task
         defer { refreshTask = nil }
         return try await task.value
+    }
+
+    private func sendWithRefresh(
+        _ endpoint: APIEndpoint,
+        body: Data? = nil,
+        contentType: String? = nil
+    ) async throws -> (Data, Int) {
+        if endpoint.auth == .required,
+           tokenStore.access() == nil,
+           tokenStore.refresh() != nil {
+            _ = try await refreshOnce()
+        }
+
+        var response = try await rawSend(endpoint, body: body, contentType: contentType)
+        if response.1 == 401,
+           endpoint.auth != .public_,
+           endpoint.path != "/auth/refresh",
+           tokenStore.refresh() != nil {
+            _ = try await refreshOnce()
+            response = try await rawSend(endpoint, body: body, contentType: contentType)
+            if response.1 == 401 {
+                await logoutAndClear()
+                throw APIError.unauthenticated
+            }
+        }
+        return response
     }
 
     private func rawSend(_ endpoint: APIEndpoint, body: Data? = nil,

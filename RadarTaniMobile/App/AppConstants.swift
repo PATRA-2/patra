@@ -5,7 +5,5 @@ enum AppConstants {
 }
 
 enum AppConfig {
-    static var apiBaseURL: URL {
-        URL(string: "https://patra-api.kamil.my.id/api/v1")!
-    }
+    nonisolated static let apiBaseURL = URL(string: "https://patra-api.kamil.my.id/api/v1")!
 }

@@ -46,6 +46,7 @@ struct PlantAnalysisTask: Identifiable {
     var stageTitle: String
     var progress: Double
     var diagnosis: AIPlantDiagnosis?
+    var report: PlantReportOut?
     var errorMessage: String?
     var updatedAt: Date
     var attempt: Int
@@ -60,6 +61,7 @@ struct PlantAnalysisTask: Identifiable {
         stageTitle: String = "Menyiapkan foto tanaman",
         progress: Double = 0.05,
         diagnosis: AIPlantDiagnosis? = nil,
+        report: PlantReportOut? = nil,
         errorMessage: String? = nil,
         createdAt: Date = .now,
         updatedAt: Date = .now,
@@ -74,6 +76,7 @@ struct PlantAnalysisTask: Identifiable {
         self.stageTitle = stageTitle
         self.progress = progress
         self.diagnosis = diagnosis
+        self.report = report
         self.errorMessage = errorMessage
         self.createdAt = createdAt
         self.updatedAt = updatedAt

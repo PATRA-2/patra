@@ -9,6 +9,17 @@ struct NotificationListView: View {
             VStack(alignment: .leading, spacing: 18) {
                 SectionHeader(title: "Notifikasi", subtitle: "Status laporan dan peringatan terbaru")
 
+                Toggle(
+                    "Hanya yang belum dibaca",
+                    isOn: Binding(
+                        get: { viewModel?.unreadOnly ?? false },
+                        set: { viewModel?.unreadOnly = $0 }
+                    )
+                )
+                .onChange(of: viewModel?.unreadOnly) { _, _ in
+                    Task { await viewModel?.load() }
+                }
+
                 if (viewModel?.items.isEmpty ?? false) && !(viewModel?.isLoading ?? false) {
                     RTDEmptyStateView(
                         title: "Belum ada notifikasi",

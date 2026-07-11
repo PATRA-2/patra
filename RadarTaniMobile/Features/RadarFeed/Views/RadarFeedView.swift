@@ -71,6 +71,9 @@ struct RadarFeedView: View {
             await viewModel?.load()
             await loadActiveFarmName()
         }
+        .onChange(of: viewModel?.selectedCategory) { _, _ in
+            Task { await viewModel?.load() }
+        }
     }
 
     private var selectedCategoryBinding: Binding<String?> {
@@ -93,7 +96,7 @@ private struct RadarFeedSummaryCard: View {
     let totalReports: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        RadarSummaryHeroCard(decorativeSystemImage: "map.circle.fill") {
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: "dot.radiowaves.left.and.right")
                     .font(.title2.weight(.bold))
@@ -114,48 +117,13 @@ private struct RadarFeedSummaryCard: View {
             }
 
             HStack(spacing: 12) {
-                FeedMetricPill(title: "Lahan aktif", value: farmName, systemImage: "leaf.fill")
-                FeedMetricPill(title: "Radius", value: radius, systemImage: "location.fill")
-                FeedMetricPill(title: "Laporan", value: "\(totalReports)", systemImage: "doc.text.fill")
+                RadarSummaryMetric(title: "Lahan aktif", value: farmName, systemImage: "leaf.fill")
+                RadarSummaryMetric(title: "Radius", value: radius, systemImage: "location.fill")
+                RadarSummaryMetric(title: "Laporan", value: "\(totalReports)", systemImage: "doc.text.fill")
             }
             .padding(12)
             .background(.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
-        .padding(22)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            ZStack(alignment: .bottomTrailing) {
-                LinearGradient(colors: [RTDColor.deepGreen, Color(hex: "#315D34")], startPoint: .topLeading, endPoint: .bottomTrailing)
-                Image(systemName: "map.circle.fill")
-                    .font(.system(size: 150))
-                    .foregroundStyle(.white.opacity(0.1))
-                    .offset(x: 24, y: 34)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .shadow(color: RTDColor.deepGreen.opacity(0.16), radius: 22, x: 0, y: 14)
-    }
-}
-
-private struct FeedMetricPill: View {
-    let title: String
-    let value: String
-    let systemImage: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Label(title, systemImage: systemImage)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.72))
-                .lineLimit(1)
-
-            Text(value)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
