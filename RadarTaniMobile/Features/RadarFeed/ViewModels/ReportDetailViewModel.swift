@@ -11,8 +11,13 @@ final class ReportDetailViewModel {
     init(env: AppEnvironment) { self.feed = env.feed }
 
     func load(id: UUID) async {
-        isLoading = true; defer { isLoading = false }
-        do { report = try await feed.detail(id) } catch {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            report = try await feed.detail(id)
+        } catch {
             errorMessage = (error as? APIError)?.userMessage ?? "Gagal memuat detail."
         }
     }
