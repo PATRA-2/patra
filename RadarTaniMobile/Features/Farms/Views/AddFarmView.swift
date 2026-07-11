@@ -10,14 +10,37 @@ struct AddFarmView: View {
             Section("Data Lahan") {
                 TextField("Nama lahan", text: textBinding(\.name))
                 TextField("Tanaman", text: textBinding(\.crop))
-                TextField("Lokasi", text: textBinding(\.location))
+                TextField("Lokasi desa", text: textBinding(\.location))
                 Toggle("Lahan aktif", isOn: Binding(
                     get: { viewModel?.isActive ?? true },
                     set: { viewModel?.isActive = $0 }))
             }
 
+            Section("Lokasi Koordinat") {
+                if let viewModel {
+                    Text("Latitude: \(viewModel.coordinate.latitude, specifier: "%.6f")")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Text("Longitude: \(viewModel.coordinate.longitude, specifier: "%.6f")")
+                        .font(.caption).foregroundStyle(.secondary)
+
+                    if !viewModel.detectedLocationName.isEmpty {
+                        HStack {
+                            Image(systemName: "location.fill").font(.caption).foregroundStyle(RTDColor.infoBlue)
+                            Text("Terdeteksi: \(viewModel.detectedLocationName)")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Button("Deteksi Lokasi Saya") {
+                        viewModel.requestLocationPermission()
+                        viewModel.detectCurrentCoordinate()
+                    }
+                    .font(.caption).buttonStyle(.borderless)
+                }
+            }
+
             if let errorMessage = viewModel?.errorMessage {
-                Section { Text(errorMessage).foregroundStyle(RTDColor.warningRed) }
+                Section { Text(errorMessage).foregroundStyle(RTDColor.warningRed).font(.callout) }
             }
 
             Section {

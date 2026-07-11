@@ -8,13 +8,34 @@ final class AddFarmViewModel {
     var name = ""
     var crop = ""
     var location = ""
-    var coordinate: Coordinate?
+    var coordinate = Coordinate(latitude: 0, longitude: 0)
     var isActive = true
     var isLoading = false
     var errorMessage: String?
+    var detectedLocationName = ""
 
     private let farmService: FarmService
-    init(env: AppEnvironment) { self.farmService = env.farms }
+    private let locationManager = CLLocationManager()
+
+    init(env: AppEnvironment) {
+        self.farmService = env.farms
+        detectCurrentCoordinate()
+    }
+
+    func detectCurrentCoordinate() {
+        let status = locationManager.authorizationStatus
+        if status == .authorizedWhenInUse || status == .authorizedAlways {
+            if let loc = locationManager.location {
+                coordinate = Coordinate(latitude: loc.coordinate.latitude,
+                                       longitude: loc.coordinate.longitude)
+                detectedLocationName = String(format: "%.4f, %.4f", loc.coordinate.latitude, loc.coordinate.longitude)
+            }
+        }
+    }
+
+    func requestLocationPermission() {
+        locationManager.requestWhenInUseAuthorization()
+    }
 
     func save() async -> Bool {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)

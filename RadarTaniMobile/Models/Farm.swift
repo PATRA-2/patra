@@ -23,8 +23,8 @@ nonisolated struct FarmCreate: Encodable {
     let name: String
     let crop: String
     let location: String
-    let coordinate: Coordinate?
-    let isActive: Bool?
+    let coordinate: Coordinate
+    let isActive: Bool
 
     enum CodingKeys: String, CodingKey {
         case name, crop, location, coordinate
@@ -45,5 +45,4 @@ nonisolated struct FarmUpdate: Encodable {
     }
 }
 
-// Backwards-compat alias.
 typealias Farm = FarmOut
