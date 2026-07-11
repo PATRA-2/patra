@@ -19,7 +19,11 @@ enum APIRoute {
     }
     static let farmsCreate = APIEndpoint(path: "/farms", method: .post, auth: .required)
     static func farmUpdate(_ id: UUID) -> APIEndpoint { .init(path: "/farms/\(id)", method: .patch, auth: .required) }
-    static func farmDelete(_ id: UUID) -> APIEndpoint { .init(path: "/farms/\(id)", method: .delete, auth: .required) }
+    static func farmDelete(_ id: UUID, force: Bool = false) -> APIEndpoint {
+    var e = APIEndpoint(path: "/farms/\(id)", method: .delete, auth: .required)
+    if force { e.query = [.init(name: "force", value: "true")] }
+    return e
+}
 
     // Plant reports
     static let reportsCreate = APIEndpoint(path: "/plant-reports", method: .post, auth: .required, accepts: .multipart)

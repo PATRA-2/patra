@@ -10,6 +10,8 @@ struct FarmDetailView: View {
     @State private var isActive: Bool
     @State private var isSaving = false
     @State private var showDeleteConfirm = false
+    @State private var showForceDeleteConfirm = false
+    @State private var isForceDelete = false
     @State private var errorMessage: String?
     @Environment(\.dismiss) private var dismiss
 
@@ -67,7 +69,13 @@ struct FarmDetailView: View {
             Button("Hapus", role: .destructive) { Task { await delete() } }
             Button("Batal", role: .cancel) {}
         } message: {
-            Text("Lahan '\(farm.name)' akan dihapus. Tindakan ini tidak bisa dibatalkan.")
+            Text("Lahan '\(farm.name)' akan dihapus dari daftar Anda.")
+        }
+        .alert("Laporan Juga Ikut Terhapus", isPresented: $showForceDeleteConfirm) {
+            Button("Hapus Semua", role: .destructive) { Task { isForceDelete = true; await delete() } }
+            Button("Batal", role: .cancel) { isForceDelete = false }
+        } message: {
+            Text("Lahan '\(farm.name)' masih memiliki laporan. Semua laporan di lahan ini juga akan dihapus. Lanjutkan?")
         }
     }
 
@@ -90,10 +98,21 @@ struct FarmDetailView: View {
     private func delete() async {
         isSaving = true; defer { isSaving = false }
         do {
-            try await env.farms.delete(farm.id)
+            if isForceDelete {
+                try await env.apiClient.requestVoid(APIRoute.farmDelete(farm.id, force: true))
+            } else {
+                try await env.farms.delete(farm.id)
+            }
             dismiss()
+        } catch let error as APIError {
+            if case .server(let s) = error, s.code == "FARM_IN_USE" {
+                showForceDeleteConfirm = true
+                isSaving = false
+            } else {
+                errorMessage = error.userMessage
+            }
         } catch {
-            errorMessage = (error as? APIError)?.userMessage ?? "Gagal menghapus."
+            errorMessage = "Gagal menghapus."
         }
     }
 }
