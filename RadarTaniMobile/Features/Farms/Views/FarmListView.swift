@@ -6,37 +6,50 @@ struct FarmListView: View {
     @State private var showAddFarm = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                SectionHeader(title: "Lahan Saya", subtitle: "Kelola lahan aktif untuk radius laporan sekitar")
-
-                ForEach(viewModel?.farms ?? []) { farm in
-                    FarmCard(farm: farm)
+        List {
+            if let viewModel {
+                ForEach(viewModel.farms) { farm in
+                    NavigationLink {
+                        FarmDetailView(farm: farm)
+                    } label: {
+                        FarmCard(farm: farm)
+                    }
+                }
+                .onDelete { indexSet in
+                    Task { await delete(at: indexSet) }
                 }
 
-                if let message = viewModel?.errorMessage, (viewModel?.farms.isEmpty ?? true) {
+                if let message = viewModel.errorMessage, viewModel.farms.isEmpty {
                     RTDErrorView(message: message)
-                    Button("Coba lagi") { Task { await viewModel?.load() } }
                 }
-
-                Button { showAddFarm = true } label: {
-                    Label("Tambah Lahan", systemImage: "plus")
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .padding(.top, 4)
             }
-            .padding(20)
         }
+        .listStyle(.plain)
         .background(RTDColor.background)
         .navigationTitle("Lahan")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showAddFarm = true } label: {
+                    Image(systemName: "plus").font(.title3)
+                }
+            }
+        }
+        .refreshable { await viewModel?.load() }
         .task {
             if viewModel == nil { viewModel = env.makeFarmListVM() }
             await viewModel?.load()
         }
         .sheet(isPresented: $showAddFarm) {
-            NavigationStack {
-                AddFarmView()
+            NavigationStack { AddFarmView() }
+                .onDisappear { Task { await viewModel?.load() } }
+        }
+    }
+
+    private func delete(at indexSet: IndexSet) async {
+        for index in indexSet {
+            if let farm = viewModel?.farms[safe: index] {
+                await viewModel?.delete(farm.id)
             }
         }
     }
@@ -63,10 +76,16 @@ private struct FarmCard: View {
                 Text(farm.isActive ? "Lahan aktif" : "Tidak aktif")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(farm.isActive ? RTDColor.safeGreen : RTDColor.textSecondary)
+                if farm.id == UUID(uuidString: "00000000-0000-0000-0000-000000000000") ?? UUID() { EmptyView() }
             }
             Spacer()
         }
-        .padding(18)
-        .rtdCard()
+        .padding(.vertical, 4)
+    }
+}
+
+extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
