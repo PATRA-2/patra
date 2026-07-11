@@ -8,7 +8,6 @@ struct AddFarmView: View {
     @State private var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: -7.7956, longitude: 110.3695),
         span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05))
-    @State private var showMapPicker = false
 
     var body: some View {
         Form {
@@ -23,12 +22,18 @@ struct AddFarmView: View {
 
             Section("Lokasi di Peta") {
                 if let viewModel {
-                    Text("Lat: \(viewModel.coordinate.latitude, specifier: "%.6f")")
-                        .font(.caption).foregroundStyle(.secondary)
-                    Text("Lng: \(viewModel.coordinate.longitude, specifier: "%.6f")")
-                        .font(.caption).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Latitude: \(viewModel.coordinate.latitude, specifier: "%.6f")")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text("Longitude: \(viewModel.coordinate.longitude, specifier: "%.6f")")
+                            .font(.caption).foregroundStyle(.secondary)
+                        if !viewModel.detectedLocationName.isEmpty {
+                            Text("📍 \(viewModel.detectedLocationName)")
+                                .font(.caption2).foregroundStyle(RTDColor.infoBlue)
+                        }
+                    }
 
-                    MapViewPicker(
+                    MapViewCoordinator(
                         coordinate: Binding(
                             get: { CLLocationCoordinate2D(
                                 latitude: viewModel.coordinate.latitude,
@@ -40,11 +45,18 @@ struct AddFarmView: View {
                     .frame(height: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
 
-                    Button("Deteksi Lokasi Saya") {
-                        viewModel.requestLocationPermission()
-                        viewModel.detectCurrentCoordinate()
+                    HStack {
+                        Button {
+                            viewModel.detectCurrentLocation()
+                        } label: {
+                            Label("Deteksi Lokasi Saya", systemImage: "location.fill")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(RTDColor.deepGreen)
+                        Spacer()
                     }
-                    .font(.caption).buttonStyle(.bordered)
+                    .padding(.top, 4)
                 }
             }
 
@@ -87,7 +99,7 @@ struct AddFarmView: View {
     }
 }
 
-struct MapViewPicker: UIViewRepresentable {
+struct MapViewCoordinator: UIViewRepresentable {
     @Binding var coordinate: CLLocationCoordinate2D
     @Binding var region: MKCoordinateRegion
 
@@ -95,48 +107,42 @@ struct MapViewPicker: UIViewRepresentable {
         let map = MKMapView()
         map.delegate = context.coordinator
         map.setRegion(region, animated: false)
-        let annotation = MKPointAnnotation()
-        annotation.coordinate = coordinate
-        annotation.title = "Lokasi Lahan"
-        map.addAnnotation(annotation)
-
-        let gesture = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
-        map.addGestureRecognizer(gesture)
-
+        addPin(at: coordinate, on: map)
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.didTap(_:)))
+        tap.numberOfTapsRequired = 1
+        map.addGestureRecognizer(tap)
         return map
     }
 
     func updateUIView(_ map: MKMapView, context: Context) {
-        if let annotation = map.annotations.first as? MKPointAnnotation {
-            annotation.coordinate = coordinate
-        }
-        if map.region.center.latitude != region.center.latitude ||
-            map.region.center.longitude != region.center.longitude {
+        map.removeAnnotations(map.annotations)
+        addPin(at: coordinate, on: map)
+        if abs(map.region.center.latitude - region.center.latitude) > 0.0001 ||
+            abs(map.region.center.longitude - region.center.longitude) > 0.0001 {
             map.setRegion(region, animated: true)
         }
     }
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
+    private func addPin(at coord: CLLocationCoordinate2D, on map: MKMapView) {
+        let annotation = MKPointAnnotation()
+        annotation.coordinate = coord
+        annotation.title = "📍 Lokasi Lahan"
+        map.addAnnotation(annotation)
     }
 
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
     class Coordinator: NSObject, MKMapViewDelegate {
-        var parent: MapViewPicker
+        var parent: MapViewCoordinator
+        init(_ parent: MapViewCoordinator) { self.parent = parent }
 
-        init(_ parent: MapViewPicker) { self.parent = parent }
-
-        @objc func handleTap(_ gesture: UILongPressGestureRecognizer) {
-            guard gesture.state == .began else { return }
+        @objc func didTap(_ gesture: UITapGestureRecognizer) {
+            guard gesture.state == .recognized else { return }
             let point = gesture.location(in: gesture.view)
             guard let map = gesture.view as? MKMapView else { return }
             let coord = map.convert(point, toCoordinateFrom: map)
             parent.coordinate = coord
             parent.region.center = coord
-            map.removeAnnotations(map.annotations)
-            let annotation = MKPointAnnotation()
-            annotation.coordinate = coord
-            annotation.title = "Lokasi Lahan"
-            map.addAnnotation(annotation)
         }
     }
 }

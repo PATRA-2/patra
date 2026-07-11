@@ -15,6 +15,7 @@ struct RadarTaniApp: App {
         WindowGroup {
             ContentView()
                 .environment(environment)
+                .preferredColorScheme(.light)
         }
     }
 }
