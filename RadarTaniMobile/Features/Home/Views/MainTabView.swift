@@ -44,14 +44,14 @@ struct MainTabView: View {
             .tag(MainTab.home)
 
             NavigationStack {
-                FarmListView()
+                FarmListView(selectedTab: $selectedTab)
             }
             .tabItem {
                 Label("Lahan", systemImage: "leaf.fill")
             }
             .tag(MainTab.farms)
 
-            PlantScanView()
+            PlantScanView(selectedTab: $selectedTab)
             .tabItem {
                 Label("Lapor", systemImage: "camera.fill")
             }

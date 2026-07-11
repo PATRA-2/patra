@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 
 @MainActor
@@ -42,6 +43,39 @@ final class FarmStore {
         for index in farms.indices {
             farms[index].isActive = farms[index].id == id
         }
+    }
+
+    @discardableResult
+    func updateFarm(
+        id: Farm.ID,
+        name: String,
+        crop: String,
+        location: String,
+        coordinate: Coordinate,
+        isActive: Bool
+    ) -> Farm? {
+        guard let index = farms.firstIndex(where: { $0.id == id }) else { return nil }
+
+        farms[index] = Farm(
+            id: farms[index].id,
+            name: name,
+            crop: crop,
+            location: location,
+            coordinate: coordinate,
+            isActive: isActive,
+            createdAt: farms[index].createdAt,
+            updatedAt: .now
+        )
+
+        if isActive {
+            for farmIndex in farms.indices where farmIndex != index {
+                farms[farmIndex].isActive = false
+            }
+        } else {
+            normalizeActiveFarm()
+        }
+
+        return farms.first { $0.id == id }
     }
 
     @discardableResult

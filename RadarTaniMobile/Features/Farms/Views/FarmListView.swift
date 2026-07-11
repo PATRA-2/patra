@@ -2,8 +2,8 @@ import SwiftUI
 
 struct FarmListView: View {
     @Environment(AppEnvironment.self) private var env
+    @Binding var selectedTab: MainTab
     @State private var viewModel: FarmListViewModel?
-    @State private var showAddFarm = false
     @State private var deleteConfirmation: DeleteConfirmation?
 
     struct DeleteConfirmation: Identifiable {
@@ -34,16 +34,17 @@ struct FarmListView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { showAddFarm = true } label: {
-                    Image(systemName: "plus").font(.title3)
+                NavigationLink {
+                    AddFarmView(selectedTab: $selectedTab)
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.title3)
                 }
+                .accessibilityLabel("Tambah Lahan")
             }
         }
         .task {
             if viewModel == nil { viewModel = env.makeFarmListVM() }
-        }
-        .sheet(isPresented: $showAddFarm) {
-            NavigationStack { AddFarmView() }
         }
         .alert("Hapus Lahan?", isPresented: .init(
             get: { deleteConfirmation != nil },
@@ -51,7 +52,8 @@ struct FarmListView: View {
         )) {
             if let farm = deleteConfirmation?.farm {
                 Button("Hapus", role: .destructive) {
-                    delete(farm)
+                    _ = viewModel?.delete(farm)
+                    deleteConfirmation = nil
                 }
                 Button("Batal", role: .cancel) {
                     deleteConfirmation = nil
@@ -59,14 +61,9 @@ struct FarmListView: View {
             }
         } message: {
             if let farm = deleteConfirmation?.farm {
-                Text("Lahan '\(farm.name)' akan dihapus dari daftar Anda.")
+                Text("Lahan '\(farm.name)' akan dihapus dari daftar di perangkat ini.")
             }
         }
-    }
-
-    private func delete(_ farm: Farm) {
-        deleteConfirmation = nil
-        viewModel?.delete(farm)
     }
 }
 

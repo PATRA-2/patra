@@ -69,6 +69,11 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
 
     func requestCurrentLocation() async throws -> CLLocationCoordinate2D {
         errorMessage = nil
+        guard locationContinuation == nil else {
+            errorMessage = "Permintaan lokasi masih diproses. Tunggu sebentar atau pilih titik lahan di peta."
+            throw LocationError.unavailable
+        }
+
         let status = manager.authorizationStatus
         authorizationStatus = status
 
