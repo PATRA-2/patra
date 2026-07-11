@@ -16,9 +16,8 @@ final class FarmListViewModel {
             errorMessage = (error as? APIError)?.userMessage ?? "Gagal memuat lahan."
         }
     }
-    func delete(_ id: UUID) async {
-        do { try await farmService.delete(id); await load() } catch {
-            errorMessage = (error as? APIError)?.userMessage ?? "Gagal menghapus lahan."
-        }
+    func delete(_ id: UUID) async throws {
+        try await farmService.delete(id)
+        await load()
     }
 }

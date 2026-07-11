@@ -4,6 +4,14 @@ struct FarmListView: View {
     @Environment(AppEnvironment.self) private var env
     @State private var viewModel: FarmListViewModel?
     @State private var showAddFarm = false
+    @State private var deleteConfirmation: DeleteConfirmation?
+    @State private var showForceDeleteAlert = false
+    @State private var pendingForceDelete: FarmOut?
+
+    struct DeleteConfirmation: Identifiable {
+        let id = UUID()
+        let farm: FarmOut
+    }
 
     var body: some View {
         List {
@@ -14,9 +22,11 @@ struct FarmListView: View {
                     } label: {
                         FarmCard(farm: farm)
                     }
-                }
-                .onDelete { indexSet in
-                    Task { await delete(at: indexSet) }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button("Hapus", role: .destructive) {
+                            deleteConfirmation = DeleteConfirmation(farm: farm)
+                        }
+                    }
                 }
 
                 if let message = viewModel.errorMessage, viewModel.farms.isEmpty {
@@ -44,13 +54,60 @@ struct FarmListView: View {
             NavigationStack { AddFarmView() }
                 .onDisappear { Task { await viewModel?.load() } }
         }
+        .alert("Hapus Lahan?", isPresented: .init(
+            get: { deleteConfirmation != nil },
+            set: { if !$0 { deleteConfirmation = nil } }
+        )) {
+            if let farm = deleteConfirmation?.farm {
+                Button("Hapus", role: .destructive) {
+                    Task { await delete(farm) }
+                }
+                Button("Batal", role: .cancel) {
+                    deleteConfirmation = nil
+                }
+            }
+        } message: {
+            if let farm = deleteConfirmation?.farm {
+                Text("Lahan '\(farm.name)' akan dihapus dari daftar Anda.")
+            }
+        }
+        .alert("Laporan Juga Ikut Terhapus", isPresented: $showForceDeleteAlert) {
+            if let farm = pendingForceDelete {
+                Button("Hapus Semua", role: .destructive) {
+                    Task { await forceDelete(farm) }
+                }
+                Button("Batal", role: .cancel) {
+                    pendingForceDelete = nil
+                }
+            }
+        } message: {
+            if let farm = pendingForceDelete {
+                Text("Lahan '\(farm.name)' masih memiliki laporan. Semua laporan di lahan ini juga akan dihapus. Lanjutkan?")
+            }
+        }
     }
 
-    private func delete(at indexSet: IndexSet) async {
-        for index in indexSet {
-            if let farm = viewModel?.farms[safe: index] {
-                await viewModel?.delete(farm.id)
+    private func delete(_ farm: FarmOut) async {
+        deleteConfirmation = nil
+        do {
+            try await env.farms.delete(farm.id)
+            await viewModel?.load()
+        } catch let error as APIError {
+            if case .server(let s) = error, s.code == "FARM_IN_USE" {
+                pendingForceDelete = farm
+                showForceDeleteAlert = true
             }
+        } catch {
+            // ignore — error untuk force delete akan di-handle di konfirmasi
+        }
+    }
+
+    private func forceDelete(_ farm: FarmOut) async {
+        pendingForceDelete = nil
+        do {
+            try await env.apiClient.requestVoid(APIRoute.farmDelete(farm.id, force: true))
+            await viewModel?.load()
+        } catch {
         }
     }
 }
@@ -76,7 +133,6 @@ private struct FarmCard: View {
                 Text(farm.isActive ? "Lahan aktif" : "Tidak aktif")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(farm.isActive ? RTDColor.safeGreen : RTDColor.textSecondary)
-                if farm.id == UUID(uuidString: "00000000-0000-0000-0000-000000000000") ?? UUID() { EmptyView() }
             }
             Spacer()
         }
