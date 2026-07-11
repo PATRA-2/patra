@@ -15,7 +15,7 @@ enum PlantAnalysisStatus: String, Hashable {
         case .uploading: "Mengunggah foto"
         case .analyzing: "Analisis berjalan"
         case .completed: "Analisis selesai"
-        case .failed: "Perlu tindakan"
+        case .failed: "Analisis gagal"
         case .reported: "Menunggu verifikasi"
         }
     }

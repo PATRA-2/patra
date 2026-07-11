@@ -47,7 +47,7 @@ struct MockPlantAnalysisService: PlantAnalysisService {
             symptoms: symptoms.isEmpty
                 ? "Daun menunjukkan perubahan warna dan bercak pada beberapa area."
                 : symptoms,
-            recommendation: "Pisahkan tanaman terdampak, pantau selama 2–3 hari, dan konsultasikan dengan koperasi atau penyuluh bila gejala menyebar pada tanaman (request.crop).",
+            recommendation: "Pisahkan tanaman terdampak, pantau selama 2-3 hari, dan konsultasikan dengan koperasi atau penyuluh bila gejala menyebar pada tanaman \(request.crop).",
             createdAt: .now
         )
     }

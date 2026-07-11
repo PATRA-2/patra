@@ -41,6 +41,9 @@ struct PlantReportConfirmationSheet: View {
                         Label(task.farm.name, systemImage: "leaf.fill")
                             .font(.caption)
                             .foregroundStyle(RTDColor.textSecondary)
+                        Label(task.farm.location, systemImage: "mappin.and.ellipse")
+                            .font(.caption)
+                            .foregroundStyle(RTDColor.textSecondary)
                     }
                 }
 
@@ -57,6 +60,20 @@ struct PlantReportConfirmationSheet: View {
                 }
                 .padding(16)
                 .rtdCard(radius: 20)
+
+                if !task.draft.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Ringkasan gejala")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(RTDColor.textSecondary)
+                        Text(task.draft.description)
+                            .font(.callout)
+                            .foregroundStyle(RTDColor.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(16)
+                    .rtdCard(radius: 20)
+                }
 
                 Label(
                     "Setelah dikirim, laporan berstatus Menunggu verifikasi dan dapat diperiksa oleh koperasi.",

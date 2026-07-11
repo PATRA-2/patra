@@ -163,7 +163,7 @@ final class PlantAnalysisStore {
         } catch {
             update(taskID: taskID) { task in
                 task.status = .failed
-                task.stageTitle = "Analisis belum berhasil"
+                task.stageTitle = "Analisis gagal"
                 task.errorMessage = error.localizedDescription
             }
         }

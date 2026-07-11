@@ -9,7 +9,7 @@ struct PlantAnalysisTaskListView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 22) {
                 SectionHeader(
-                    title: "Proses Analisis",
+                    title: "Background task",
                     subtitle: "Pantau foto yang masih diproses dan buka kembali hasil sebelumnya"
                 )
 
@@ -17,7 +17,7 @@ struct PlantAnalysisTaskListView: View {
                     ContentUnavailableView(
                         "Belum ada proses",
                         systemImage: "tray",
-                        description: Text("Foto yang Anda analisis dari tab Lapor akan muncul di sini.")
+                        description: Text("Foto yang dianalisis dari tab Lapor akan muncul di sini.")
                     )
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 70)
@@ -42,7 +42,7 @@ struct PlantAnalysisTaskListView: View {
             .padding(20)
         }
         .background(RTDColor.background)
-        .navigationTitle("Background Task")
+        .navigationTitle("Background task")
         .navigationBarTitleDisplayMode(.inline)
     }
 

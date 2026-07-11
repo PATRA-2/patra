@@ -1,103 +1,211 @@
 import SwiftUI
 
 struct PlantDiagnosisResultView: View {
-    let report: PlantReportOut
+    @Environment(PlantAnalysisStore.self) private var analysisStore
 
-    @Environment(AppEnvironment.self) private var env
-    @State private var currentReport: PlantReportOut
+    let taskID: UUID
+    @Binding var path: [PlantScanRoute]
+    @State private var showConfirmation = false
 
-    init(report: PlantReportOut) {
-        self.report = report
-        self._currentReport = State(initialValue: report)
+    private var task: PlantAnalysisTask? {
+        analysisStore.task(withID: taskID)
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                RTDAsyncImage(url: currentReport.imageUrl)
-                    .frame(height: 220)
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                ReportStepIndicator(activeStep: task?.status == .reported ? 4 : 3)
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(currentReport.title)
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(RTDColor.textPrimary)
-                    HStack(spacing: 8) {
-                        RTDBadge(title: currentReport.category, color: RTDColor.warningOrange)
-                        RTDBadge(title: currentReport.status, color: statusColor)
-                    }
-                    if let desc = currentReport.description {
-                        Text(desc)
-                            .font(.body)
-                            .foregroundStyle(RTDColor.textSecondary)
-                    }
-                }
-                .padding(18)
-                .rtdCard()
-
-                if let diagnosis = currentReport.diagnosis {
-                    VStack(alignment: .leading, spacing: 14) {
-                        SectionHeader(title: "Analisis AI", subtitle: "Hasil deteksi gejala tanaman")
-                        HStack {
-                            Text(diagnosis.prediction)
-                                .font(.headline)
-                                .foregroundStyle(RTDColor.textPrimary)
-                            Spacer()
-                            ConfidenceBadge(score: diagnosis.confidence)
-                        }
-                        Text(diagnosis.symptoms)
-                            .font(.callout)
-                            .foregroundStyle(RTDColor.textSecondary)
-                        Text("Rekomendasi")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(RTDColor.textSecondary)
-                        Text(diagnosis.recommendation)
-                            .font(.callout)
-                            .foregroundStyle(RTDColor.textPrimary)
-                    }
-                    .padding(18)
-                    .rtdCard()
+                if let task {
+                    resultContent(task)
                 } else {
-                    VStack(spacing: 10) {
-                        ProgressView()
-                        Text("Analisis sedang berjalan...")
-                            .font(.callout)
-                            .foregroundStyle(RTDColor.textSecondary)
-                    }
+                    ContentUnavailableView(
+                        "Hasil tidak ditemukan",
+                        systemImage: "exclamationmark.magnifyingglass",
+                        description: Text("Kembali ke Lapor dan mulai analisis baru.")
+                    )
                     .frame(maxWidth: .infinity)
-                    .padding(24)
-                    .rtdCard()
+                    .padding(.top, 80)
                 }
             }
             .padding(20)
         }
         .background(RTDColor.background)
-        .navigationTitle("Hasil Laporan")
+        .navigationTitle("Hasil Analisis")
         .navigationBarTitleDisplayMode(.inline)
-        .task {
-            await pollDiagnosis()
+        .sheet(isPresented: $showConfirmation) {
+            if let task, let diagnosis = task.diagnosis {
+                PlantReportConfirmationSheet(task: task, diagnosis: diagnosis) {
+                    analysisStore.markReported(taskID: task.id)
+                    path.append(.success(task.id))
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
         }
     }
 
-    private func pollDiagnosis() async {
-        guard currentReport.diagnosis == nil,
-              currentReport.status == "Analisis berjalan" || currentReport.status == "Menunggu verifikasi" else { return }
+    @ViewBuilder
+    private func resultContent(_ task: PlantAnalysisTask) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(uiImage: task.image)
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, minHeight: 220, maxHeight: 280)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .accessibilityLabel("Foto tanaman yang dianalisis")
 
-        for _ in 0..<30 {
-            try? await Task.sleep(for: .seconds(2))
-            do {
-                let updated = try await env.reports.detail(currentReport.id)
-                await MainActor.run { currentReport = updated }
-                if updated.diagnosis != nil { break }
-            } catch { break }
+            HStack(spacing: 8) {
+                RTDBadge(title: task.draft.category.rawValue, color: RTDColor.warningOrange)
+                RTDBadge(title: task.status.title, color: statusColor(task.status))
+            }
+        }
+
+        VStack(alignment: .leading, spacing: 10) {
+            Text(task.draft.title)
+                .font(.title2.bold())
+                .foregroundStyle(RTDColor.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if !task.draft.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(task.draft.description)
+                    .font(.body)
+                    .foregroundStyle(RTDColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Label(task.farm.name, systemImage: "leaf.fill")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(RTDColor.deepGreen)
+        }
+        .padding(18)
+        .rtdCard()
+
+        if let diagnosis = task.diagnosis {
+            diagnosisCard(diagnosis)
+            actions(task: task)
+        } else {
+            VStack(spacing: 12) {
+                ProgressView()
+                Text(task.status == .failed ? "Analisis gagal" : "Analisis berjalan")
+                    .font(.headline)
+                    .foregroundStyle(task.status == .failed ? RTDColor.warningRed : RTDColor.textPrimary)
+                Text(task.errorMessage ?? task.stageTitle)
+                    .font(.callout)
+                    .foregroundStyle(RTDColor.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(24)
+            .rtdCard()
         }
     }
 
-    private var statusColor: Color {
-        switch currentReport.status {
-        case "Terverifikasi": RTDColor.safeGreen
-        case "Ditolak": RTDColor.warningRed
-        default: RTDColor.warningOrange
+    private func diagnosisCard(_ diagnosis: AIPlantDiagnosis) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            SectionHeader(title: "Perkiraan awal AI", subtitle: "Gunakan sebagai bahan pemantauan, bukan keputusan akhir.")
+
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(diagnosis.prediction)
+                        .font(.title3.bold())
+                        .foregroundStyle(RTDColor.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Tingkat keyakinan")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(RTDColor.textSecondary)
+                }
+
+                Spacer(minLength: 8)
+                ConfidenceBadge(score: diagnosis.confidence)
+            }
+
+            Divider()
+
+            diagnosisInfo(
+                title: "Gejala terdeteksi",
+                text: diagnosis.symptoms,
+                systemImage: "leaf.fill",
+                tint: RTDColor.leafGreen
+            )
+
+            diagnosisInfo(
+                title: "Rekomendasi awal",
+                text: diagnosis.recommendation,
+                systemImage: "checklist",
+                tint: RTDColor.deepGreen
+            )
+
+            DisclaimerCard()
+        }
+        .padding(18)
+        .rtdCard()
+    }
+
+    private func diagnosisInfo(title: String, text: String, systemImage: String, tint: Color) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.headline)
+                .foregroundStyle(tint)
+                .frame(width: 34, height: 34)
+                .background(tint.opacity(0.12), in: Circle())
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(RTDColor.textSecondary)
+                Text(text)
+                    .font(.callout)
+                    .foregroundStyle(RTDColor.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func actions(task: PlantAnalysisTask) -> some View {
+        VStack(spacing: 12) {
+            Button {
+                path.append(.chat(task.id))
+            } label: {
+                Label("Tanya AI", systemImage: "message.fill")
+                    .font(.headline)
+                    .foregroundStyle(RTDColor.deepGreen)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(RTDColor.softGreen, in: Capsule())
+            }
+            .buttonStyle(.plain)
+
+            if task.status == .reported {
+                Label("Menunggu verifikasi koperasi", systemImage: "building.2.crop.circle.fill")
+                    .font(.headline)
+                    .foregroundStyle(RTDColor.infoBlue)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(RTDColor.infoBlue.opacity(0.12), in: Capsule())
+            } else {
+                Button {
+                    showConfirmation = true
+                } label: {
+                    Label("Laporkan ke Koperasi", systemImage: "paperplane.fill")
+                }
+                .buttonStyle(PrimaryButtonStyle())
+            }
+        }
+    }
+
+    private func statusColor(_ status: PlantAnalysisStatus) -> Color {
+        switch status {
+        case .queued, .uploading, .analyzing:
+            RTDColor.warningOrange
+        case .completed:
+            RTDColor.safeGreen
+        case .failed:
+            RTDColor.warningRed
+        case .reported:
+            RTDColor.infoBlue
         }
     }
 }

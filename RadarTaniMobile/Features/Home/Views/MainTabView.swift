@@ -51,9 +51,7 @@ struct MainTabView: View {
             }
             .tag(MainTab.farms)
 
-            NavigationStack {
-                PlantScanView()
-            }
+            PlantScanView()
             .tabItem {
                 Label("Lapor", systemImage: "camera.fill")
             }
